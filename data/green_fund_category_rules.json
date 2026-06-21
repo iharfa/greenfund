@@ -1,0 +1,126 @@
+{
+  "source_workbook": "uploaded Green Fund workbook",
+  "date_range": {
+    "start": "2019-01-01",
+    "end": "2025-12-01",
+    "months": 84
+  },
+  "totals": {
+    "total_inflows_mvr": 7308872794.47,
+    "total_outflows_mvr": 3720268660.1,
+    "ending_balance_mvr": 3588604134.37,
+    "project_rows": 336,
+    "nonzero_project_rows": 335
+  },
+  "categories": [
+    {
+      "category": "Water and sewerage",
+      "project_count": 64,
+      "total_mvr": 1511891857.26,
+      "percent": 40.64
+    },
+    {
+      "category": "Coastal protection",
+      "project_count": 54,
+      "total_mvr": 948153272.94,
+      "percent": 25.49
+    },
+    {
+      "category": "Waste management",
+      "project_count": 165,
+      "total_mvr": 702214153.67,
+      "percent": 18.88
+    },
+    {
+      "category": "Water supply",
+      "project_count": 27,
+      "total_mvr": 427616178.84,
+      "percent": 11.49
+    },
+    {
+      "category": "Drainage and stormwater",
+      "project_count": 10,
+      "total_mvr": 77248958.71,
+      "percent": 2.08
+    },
+    {
+      "category": "Other / multi-sector",
+      "project_count": 5,
+      "total_mvr": 45494542.2,
+      "percent": 1.22
+    },
+    {
+      "category": "Environmental management",
+      "project_count": 8,
+      "total_mvr": 5724668.8,
+      "percent": 0.15
+    },
+    {
+      "category": "Energy and climate",
+      "project_count": 3,
+      "total_mvr": 1925027.68,
+      "percent": 0.05
+    }
+  ],
+  "category_rules": {
+    "Coastal protection": [
+      "coastal",
+      "erosion",
+      "revetment",
+      "breakwater",
+      "safer islands",
+      "swimming area"
+    ],
+    "Water and sewerage": [
+      "water and sewerage",
+      "water & sewerage",
+      "sanitation",
+      "sani",
+      "sewerage"
+    ],
+    "Water supply": [
+      "water supply",
+      "water system",
+      "RO plant",
+      "water storage",
+      "provision of water"
+    ],
+    "Waste management": [
+      "waste",
+      "WRMC",
+      "incinerator",
+      "waste to energy",
+      "bio-treatment",
+      "clean environment"
+    ],
+    "Drainage and stormwater": [
+      "drainage",
+      "storm water"
+    ],
+    "Energy and climate": [
+      "renewable",
+      "sustainable energy",
+      "POISED",
+      "ASPIRE",
+      "climate"
+    ],
+    "Environmental management": [
+      "marine park",
+      "pond",
+      "coconut",
+      "air quality",
+      "lab"
+    ],
+    "Harbour and infrastructure": [
+      "harbour",
+      "jetty"
+    ],
+    "Other / multi-sector": [
+      "fallback category"
+    ]
+  },
+  "spatial_join": {
+    "preferred_join_key": "join_key",
+    "join_strategy": "Match join_key to islands repo fields using normalized atoll code and island name. For multi_location and national_or_unmatched rows, aggregate at atoll or national centroid until project site lists are manually resolved."
+  }
+}
