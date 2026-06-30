@@ -82,6 +82,7 @@ function App() {
   const [selectedIsland, setSelectedIsland] = useState('');
   const [search, setSearch] = useState('');
   const [showUnmapped, setShowUnmapped] = useState(false);
+  const [view, setView] = useState('spending');
 
   useEffect(() => {
     loadDashboardData()
@@ -241,6 +242,26 @@ function App() {
         </div>
       </section>
 
+      <nav className="view-tabs">
+        <button className={view === 'spending' ? 'tab active' : 'tab'} onClick={() => setView('spending')}>
+          💸 Spending map
+        </button>
+        <button className={view === 'collection' ? 'tab active' : 'tab'} onClick={() => setView('collection')}>
+          🟢 Collection &amp; redistribution
+        </button>
+      </nav>
+
+      {view === 'collection' && (
+        <CollectionView
+          atollBalance={data.atollBalance}
+          collectionMonthly={data.collectionMonthly}
+          flowMonthly={data.flowMonthly}
+          monthlyLocations={data.monthlyLocations}
+        />
+      )}
+
+      {view === 'spending' && (
+      <>
       <section className="kpi-grid">
         <Kpi icon="💵" label="Selected spend" value={formatMoney(totals.totalSpend)} detail="Mapped plus unmapped" />
         <Kpi icon="💲" label="Mapped spend" value={formatMoney(totals.mappedSpend)} detail={`${totals.mappedIslands} islands shown`} />
@@ -363,6 +384,24 @@ function App() {
       </section>
 
       <ProjectTable rows={projectRows} />
+      </>
+      )}
+
+      <footer className="data-disclaimer">
+        <strong>Data notes</strong>
+        <p>
+          Green tax collection figures are reported by the Maldives Inland Revenue Authority (MIRA) at the
+          atoll/city level only. MIRA is unable to provide data at a resolution that would allow individual
+          taxpayers to be identified, so collection cannot be disaggregated below the atoll.
+        </p>
+        <p>
+          Collection is keyed by atoll/city while green fund expenditure is keyed by island, then rolled up to
+          atoll for comparison. Malé City raises green tax but has no green-fund spending mapped to it in the
+          published expenditure data — such spending is likely recorded as national or unmapped — so its net-flow
+          figure overstates the true redistribution. Net-flow and share comparisons are indicative, not audited
+          reconciliations.
+        </p>
+      </footer>
     </main>
   );
 }
@@ -633,6 +672,245 @@ function ProjectTable({ rows }) {
       </div>
     </section>
   );
+}
+
+const TYPE_COLORS = {
+  Resorts: '#2f7d32',
+  Hotels: '#8bd450',
+  Guesthouse: '#f2b705',
+  Vessels: '#3aa0ff'
+};
+
+function CollectionView({ atollBalance, collectionMonthly, flowMonthly, monthlyLocations }) {
+  const [selectedAtoll, setSelectedAtoll] = useState('');
+
+  const totals = useMemo(() => {
+    const collection = atollBalance.reduce((s, r) => s + r.collection_mvr, 0);
+    const expenditure = atollBalance.reduce((s, r) => s + r.expenditure_mvr, 0);
+    const contributors = atollBalance.filter((r) => r.net_flow_mvr > 0).length;
+    const beneficiaries = atollBalance.filter((r) => r.net_flow_mvr < 0).length;
+    return { collection, expenditure, retained: collection - expenditure, contributors, beneficiaries };
+  }, [atollBalance]);
+
+  const composition = useMemo(() => {
+    const grouped = new Map();
+    collectionMonthly.forEach((row) => {
+      const key = row.atoll_code;
+      const entry = grouped.get(key) || { atoll_code: key, total: 0, Resorts: 0, Hotels: 0, Guesthouse: 0, Vessels: 0 };
+      entry[row.establishment_type] = (entry[row.establishment_type] || 0) + row.amount_mvr;
+      entry.total += row.amount_mvr;
+      grouped.set(key, entry);
+    });
+    return grouped;
+  }, [collectionMonthly]);
+
+  const atollCategoryMix = useMemo(() => {
+    if (!selectedAtoll) return [];
+    return groupByCategory(
+      monthlyLocations.filter((row) => normalizeAtoll(row.parsed_atoll) === selectedAtoll),
+      'allocated_amount_mvr'
+    ).filter((r) => r.amount > 0).slice(0, 6);
+  }, [selectedAtoll, monthlyLocations]);
+
+  const selected = selectedAtoll ? atollBalance.find((r) => r.atoll_code === selectedAtoll) : null;
+
+  return (
+    <>
+      <section className="kpi-grid">
+        <Kpi icon="🟢" label="Green tax collected" value={formatMoney(totals.collection)} detail="All atolls · 2019–2025" />
+        <Kpi icon="💸" label="Green fund spent" value={formatMoney(totals.expenditure)} detail="Mapped island spending" />
+        <Kpi icon="🏦" label="Net retained" value={formatMoney(totals.retained)} detail="Collected minus spent" />
+        <Kpi icon="⚖️" label="Redistribution" value={`${totals.contributors} → ${totals.beneficiaries}`} detail="Net donor → net recipient atolls" />
+      </section>
+
+      <section className="lower-grid">
+        <RedistributionChart rows={atollBalance} selectedAtoll={selectedAtoll} onSelect={setSelectedAtoll} />
+        <ShareCompareChart rows={atollBalance} selectedAtoll={selectedAtoll} onSelect={setSelectedAtoll} />
+      </section>
+
+      <section className="lower-grid">
+        <CompositionChart composition={composition} balance={atollBalance} selectedAtoll={selectedAtoll} onSelect={setSelectedAtoll} />
+        <FlowTimeline flow={flowMonthly} />
+      </section>
+
+      <section className="card table-card">
+        <div className="card-header">
+          <div>
+            <div className="section-title">Atoll balance · does spending follow collection?</div>
+            <p>{selected ? `${selected.atoll_label}: collects ${selected.collection_share_pct}% of tax, receives ${selected.expenditure_share_pct}% of spending.` : 'Click any atoll to inspect its category spending mix.'}</p>
+          </div>
+          <strong>{atollBalance.length} atolls</strong>
+        </div>
+        {selected && atollCategoryMix.length > 0 && (
+          <div className="mini-list atoll-mix">
+            <strong>{selected.atoll_label} — green fund spending by category</strong>
+            {atollCategoryMix.map((row) => (
+              <div className="bar-row" key={row.category}>
+                <span>{categoryEmoji(row.category)} {row.category}</span>
+                <em>{formatMoney(row.amount)}</em>
+                <div><i style={{ width: `${Math.max(4, (row.amount / atollCategoryMix[0].amount) * 100)}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Atoll</th>
+                <th>Collected</th>
+                <th>Spent</th>
+                <th>Net flow</th>
+                <th>Collect %</th>
+                <th>Spend %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {atollBalance.map((row) => (
+                <tr
+                  key={row.atoll_code}
+                  className={selectedAtoll === row.atoll_code ? 'row-selected' : ''}
+                  onClick={() => setSelectedAtoll(row.atoll_code === selectedAtoll ? '' : row.atoll_code)}
+                >
+                  <td><b>{row.atoll_label}</b></td>
+                  <td>{formatMoney(row.collection_mvr, false)}</td>
+                  <td>{formatMoney(row.expenditure_mvr, false)}</td>
+                  <td className={row.net_flow_mvr >= 0 ? 'net-pos' : 'net-neg'}>{formatMoney(row.net_flow_mvr, false)}</td>
+                  <td>{row.collection_share_pct}%</td>
+                  <td>{row.expenditure_share_pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function RedistributionChart({ rows, selectedAtoll, onSelect }) {
+  const sorted = [...rows].sort((a, b) => b.net_flow_mvr - a.net_flow_mvr);
+  const max = Math.max(...sorted.map((r) => Math.abs(r.net_flow_mvr)), 1);
+  return (
+    <section className="card chart-card">
+      <div className="section-title">Net flow by atoll · who funds whom</div>
+      <p className="chart-sub">Green = raises more tax than it receives in spending. Red = net beneficiary.</p>
+      <div className="diverging">
+        {sorted.map((row) => {
+          const pct = (Math.abs(row.net_flow_mvr) / max) * 50;
+          const pos = row.net_flow_mvr >= 0;
+          return (
+            <button
+              key={row.atoll_code}
+              className={`div-row ${selectedAtoll === row.atoll_code ? 'sel' : ''}`}
+              onClick={() => onSelect(row.atoll_code === selectedAtoll ? '' : row.atoll_code)}
+            >
+              <span className="div-label">{row.atoll_code}</span>
+              <div className="div-track">
+                <div className="div-mid" />
+                <i className={pos ? 'div-bar pos' : 'div-bar neg'} style={{ width: `${pct}%`, left: pos ? '50%' : `${50 - pct}%` }} />
+              </div>
+              <em className={pos ? 'net-pos' : 'net-neg'}>{formatMoney(row.net_flow_mvr)}</em>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ShareCompareChart({ rows, selectedAtoll, onSelect }) {
+  const sorted = [...rows].sort((a, b) => b.collection_share_pct - a.collection_share_pct);
+  const max = Math.max(...sorted.flatMap((r) => [r.collection_share_pct, r.expenditure_share_pct]), 1);
+  return (
+    <section className="card chart-card">
+      <div className="section-title">Share of collection vs share of spending</div>
+      <p className="chart-sub"><span className="swatch swatch-c" /> collection share &nbsp; <span className="swatch swatch-e" /> spending share</p>
+      <div className="share-list">
+        {sorted.map((row) => (
+          <button
+            key={row.atoll_code}
+            className={`share-row ${selectedAtoll === row.atoll_code ? 'sel' : ''}`}
+            onClick={() => onSelect(row.atoll_code === selectedAtoll ? '' : row.atoll_code)}
+          >
+            <span className="share-label">{row.atoll_code}</span>
+            <div className="share-bars">
+              <i className="share-bar c" style={{ width: `${(row.collection_share_pct / max) * 100}%` }} />
+              <i className="share-bar e" style={{ width: `${(row.expenditure_share_pct / max) * 100}%` }} />
+            </div>
+            <em>{row.collection_share_pct}% / {row.expenditure_share_pct}%</em>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CompositionChart({ composition, balance, selectedAtoll, onSelect }) {
+  const types = ['Resorts', 'Hotels', 'Guesthouse', 'Vessels'];
+  const rows = balance
+    .map((b) => composition.get(b.atoll_code))
+    .filter((r) => r && r.total > 0)
+    .slice(0, 12);
+  return (
+    <section className="card chart-card">
+      <div className="section-title">What drives each atoll's tax base</div>
+      <p className="chart-sub">
+        {types.map((t) => (
+          <span key={t} className="legend-chip"><i style={{ background: TYPE_COLORS[t] }} /> {t}</span>
+        ))}
+      </p>
+      <div className="comp-list">
+        {rows.map((row) => (
+          <button
+            key={row.atoll_code}
+            className={`comp-row ${selectedAtoll === row.atoll_code ? 'sel' : ''}`}
+            onClick={() => onSelect(row.atoll_code === selectedAtoll ? '' : row.atoll_code)}
+          >
+            <span className="comp-label">{row.atoll_code}</span>
+            <div className="comp-bar">
+              {types.map((t) => row[t] > 0 ? (
+                <i key={t} style={{ width: `${(row[t] / row.total) * 100}%`, background: TYPE_COLORS[t] }} title={`${t}: ${formatMoney(row[t])}`} />
+              ) : null)}
+            </div>
+            <em>{formatMoney(row.total)}</em>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FlowTimeline({ flow }) {
+  const width = 820;
+  const height = 250;
+  const padding = 36;
+  const max = Math.max(...flow.flatMap((r) => [r.collection_mvr, r.expenditure_mvr]), 1);
+  const x = (i) => padding + i * ((width - padding * 2) / Math.max(1, flow.length - 1));
+  const y = (v) => height - padding - (v / max) * (height - padding * 2);
+  const line = (key) => flow.map((r, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(r[key]).toFixed(1)}`).join(' ');
+  return (
+    <section className="card chart-card">
+      <div className="card-header">
+        <div>
+          <div className="section-title">Collection vs spending over time</div>
+          <p className="chart-sub"><span className="swatch swatch-c" /> monthly collection &nbsp; <span className="swatch swatch-e" /> monthly spending</p>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="timeline-chart" role="img" aria-label="Collection vs spending timeline">
+        <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} className="axis-line" />
+        <path d={line('collection_mvr')} fill="none" stroke="#2f7d32" strokeWidth="2.5" />
+        <path d={line('expenditure_mvr')} fill="none" stroke="#f2b705" strokeWidth="2.5" />
+        <text x={padding} y="22" className="chart-note">Peak month: {formatMoney(max)}</text>
+        <text x={padding} y={height - 8} className="chart-note">{flow[0]?.month?.slice(0, 7)}</text>
+        <text x={width - padding} y={height - 8} className="chart-note" textAnchor="end">{flow[flow.length - 1]?.month?.slice(0, 7)}</text>
+      </svg>
+    </section>
+  );
+}
+
+function normalizeAtoll(code) {
+  return String(code || '').trim();
 }
 
 export default App;

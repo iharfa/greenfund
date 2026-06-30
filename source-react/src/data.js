@@ -6,7 +6,10 @@ export const DATA_FILES = {
   unmappedMonthly: '/data/green_fund_unmapped_monthly.csv',
   categoryMonthly: '/data/green_fund_category_monthly.csv',
   categoryRules: '/data/green_fund_category_rules.json',
-  islands: '/data/islands.geojson'
+  islands: '/data/islands.geojson',
+  collectionMonthly: '/data/green_fund_collection_atoll_monthly.csv',
+  atollBalance: '/data/green_fund_atoll_balance.csv',
+  flowMonthly: '/data/green_fund_collection_vs_expenditure_monthly.csv'
 };
 
 export function parseCsv(text) {
@@ -98,7 +101,10 @@ export async function loadDashboardData() {
     unmappedMonthly,
     categoryMonthly,
     categoryRules,
-    islands
+    islands,
+    collectionMonthly,
+    atollBalance,
+    flowMonthly
   ] = await Promise.all([
     fetchCsv(DATA_FILES.projects),
     fetchCsv(DATA_FILES.projectLocations),
@@ -107,8 +113,33 @@ export async function loadDashboardData() {
     fetchCsv(DATA_FILES.unmappedMonthly),
     fetchCsv(DATA_FILES.categoryMonthly),
     fetchJson(DATA_FILES.categoryRules),
-    fetchJson(DATA_FILES.islands)
+    fetchJson(DATA_FILES.islands),
+    fetchCsv(DATA_FILES.collectionMonthly),
+    fetchCsv(DATA_FILES.atollBalance),
+    fetchCsv(DATA_FILES.flowMonthly)
   ]);
+
+  const cleanCollectionMonthly = collectionMonthly.map((row) => ({
+    ...row,
+    amount_mvr: numberValue(row.amount_mvr)
+  }));
+  const cleanAtollBalance = atollBalance
+    .map((row) => ({
+      ...row,
+      collection_mvr: numberValue(row.collection_mvr),
+      expenditure_mvr: numberValue(row.expenditure_mvr),
+      net_flow_mvr: numberValue(row.net_flow_mvr),
+      collection_share_pct: numberValue(row.collection_share_pct),
+      expenditure_share_pct: numberValue(row.expenditure_share_pct)
+    }))
+    .sort((a, b) => b.collection_mvr - a.collection_mvr);
+  const cleanFlowMonthly = flowMonthly
+    .map((row) => ({
+      month: row.month,
+      collection_mvr: numberValue(row.collection_mvr),
+      expenditure_mvr: numberValue(row.expenditure_mvr)
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 
   const mappedMonthly = monthlyLocations.map(cleanRow);
   const cleanUnmappedMonthly = unmappedMonthly.map(cleanRow);
@@ -142,7 +173,10 @@ export async function loadDashboardData() {
     categoryRules,
     islands,
     months,
-    categories
+    categories,
+    collectionMonthly: cleanCollectionMonthly,
+    atollBalance: cleanAtollBalance,
+    flowMonthly: cleanFlowMonthly
   };
 }
 
