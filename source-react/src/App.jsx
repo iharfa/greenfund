@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as echarts from 'echarts/core';
-import { LineChart } from 'echarts/charts';
+import { LineChart, HeatmapChart } from 'echarts/charts';
 import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
   DataZoomComponent,
   MarkLineComponent,
-  MarkPointComponent
+  MarkPointComponent,
+  VisualMapComponent
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import {
+  applyQaOverrides,
   categoryClassName,
   formatMoney,
   loadDashboardData,
@@ -19,14 +21,30 @@ import {
 
 echarts.use([
   LineChart,
+  HeatmapChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
   DataZoomComponent,
   MarkLineComponent,
   MarkPointComponent,
+  VisualMapComponent,
   CanvasRenderer
 ]);
+
+// ponytail: friction gate only, not real access control - this is a static site with the
+// bundle downloadable by anyone, so this stops casual edits, not a determined reader.
+// Change it, or wire up real auth, before this matters for anything sensitive.
+const QA_PASSWORD = 'greenfund-qa-2026';
+const QA_STORAGE_KEY = 'greenfund-qa-overrides-v1';
+
+function readLocalOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(QA_STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
 import {
   boundsForFeatures,
   createProjector,
@@ -103,25 +121,55 @@ function categoryEmoji(category) {
 }
 
 function App() {
-  const [data, setData] = useState(null);
+  const [rawData, setRawData] = useState(null);
   const [error, setError] = useState('');
   const [monthIndex, setMonthIndex] = useState(0);
   const [mode, setMode] = useState('cumulative');
   const [selectedCategories, setSelectedCategories] = useState(new Set());
   const [selectedIsland, setSelectedIsland] = useState('');
   const [search, setSearch] = useState('');
-  const [showUnmapped, setShowUnmapped] = useState(false);
   const [view, setView] = useState('spending');
+  const [localOverrides, setLocalOverrides] = useState(readLocalOverrides);
+  const [qaUnlocked, setQaUnlocked] = useState(false);
 
   useEffect(() => {
     loadDashboardData()
       .then((loaded) => {
-        setData(loaded);
+        setRawData(loaded);
         setMonthIndex(Math.max(0, loaded.months.length - 1));
         setSelectedCategories(new Set(loaded.categories));
       })
       .catch((err) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(QA_STORAGE_KEY, JSON.stringify(localOverrides));
+  }, [localOverrides]);
+
+  const qaOverrides = useMemo(
+    () => ({ ...(rawData?.qaOverridesBase || {}), ...localOverrides }),
+    [rawData, localOverrides]
+  );
+
+  const setQaOverride = (projectCode, patch) => {
+    setLocalOverrides((current) => ({
+      ...current,
+      [projectCode]: { ...current[projectCode], ...patch, updated_at: new Date().toISOString().slice(0, 10) }
+    }));
+  };
+
+  const clearQaOverride = (projectCode) => {
+    setLocalOverrides((current) => {
+      const next = { ...current };
+      delete next[projectCode];
+      return next;
+    });
+  };
+
+  const data = useMemo(
+    () => (rawData ? applyQaOverrides(rawData, qaOverrides) : rawData),
+    [rawData, qaOverrides]
+  );
 
   const selectedMonth = data?.months?.[monthIndex] || '';
 
@@ -273,7 +321,8 @@ function App() {
   const VIEW_META = {
     spending: { kicker: 'The money map', title: 'Spending across the atolls', desc: 'Green Fund disbursements by island, category, project and month.' },
     collection: { kicker: 'Collection & redistribution', title: 'Collection versus spending', desc: 'Green tax raised against spending received, for each atoll.' },
-    browser: { kicker: 'The full dataset', title: 'Browse green tax collection', desc: 'MIRA monthly atoll returns from 2019 to 2026, by establishment type. Chart, filter and export the figures.' }
+    browser: { kicker: 'The full dataset', title: 'Browse green tax collection', desc: 'MIRA monthly atoll returns from 2019 to 2026, by establishment type. Chart, filter and export the figures.' },
+    quality: { kicker: 'Data quality', title: 'Verify unmapped projects', desc: 'Island details, plus AI-assisted research and manual review for projects that could not be tied to a location.' }
   };
   const meta = VIEW_META[view];
 
@@ -299,9 +348,27 @@ function App() {
             <button className={view === 'browser' ? 'tab active' : 'tab'} onClick={() => setView('browser')}>
               Data browser
             </button>
+            <button className={view === 'quality' ? 'tab active' : 'tab'} onClick={() => setView('quality')}>
+              Data quality {data?.unmappedProjects?.length ? `(${data.unmappedProjects.length} open)` : ''}
+            </button>
           </nav>
 
           {view === 'browser' && <DataBrowser detail={data.collectionDetail} />}
+
+          {view === 'quality' && (
+            <DataQualityView
+              selectedIslandData={selectedIslandData}
+              filteredRows={filteredRows}
+              unmappedProjects={rawData.unmappedProjects}
+              qaResearch={rawData.qaResearch}
+              overrides={qaOverrides}
+              localOverrides={localOverrides}
+              setOverride={setQaOverride}
+              clearOverride={clearQaOverride}
+              unlocked={qaUnlocked}
+              setUnlocked={setQaUnlocked}
+            />
+          )}
 
           {view === 'collection' && (
             <CollectionView
@@ -410,24 +477,13 @@ function App() {
             selectedIsland={selectedIsland}
             onSelectIsland={setSelectedIsland}
           />
-        </section>
-
-        <aside className="detail-panel card">
-          <div className="section-title">Island details</div>
-          {selectedIslandData ? (
-            <IslandDetails island={selectedIslandData} rows={filteredRows} />
-          ) : (
-            <div className="empty-detail">
-              <span>🗺️</span>
-              <p>Select an island to see mapped projects and category split.</p>
-              <small>Current view shows {totals.mappedIslands} islands with spending.</small>
-            </div>
+          {selectedIslandData && (
+            <p className="qa-note">
+              Showing <b>{selectedIslandData.join_key}</b> · full breakdown and data quality tools are in the{' '}
+              <button className="link-button" onClick={() => setView('quality')}>Data quality tab</button>.
+            </p>
           )}
-          <button className="unmapped-toggle" onClick={() => setShowUnmapped((value) => !value)}>
-            {showUnmapped ? 'Hide' : 'Show'} data quality panel 💸
-          </button>
-          {showUnmapped && <DataQuality totals={totals} unmappedProjects={data.unmappedProjects} />}
-        </aside>
+        </section>
       </section>
 
       <section className="lower-grid">
@@ -449,7 +505,8 @@ function SiteHeader({ view, setView }) {
   const links = [
     ['spending', 'Money map'],
     ['collection', 'Redistribution'],
-    ['browser', 'Data browser']
+    ['browser', 'Data browser'],
+    ['quality', 'Data quality']
   ];
   return (
     <header className="site-header">
@@ -573,11 +630,83 @@ function Kpi({ icon, label, value, detail }) {
   );
 }
 
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 10;
+
+// Native SVG transform pan/zoom: wheel zooms toward the cursor, drag pans, buttons cover
+// touch/no-wheel input. No charting/gesture library needed for a single transformed <g>.
+function useMapZoom() {
+  const svgRef = useRef(null);
+  const [view, setView] = useState({ k: 1, x: 0, y: 0 });
+  const drag = useRef(null);
+  const moved = useRef(false);
+
+  const toSvgPoint = (clientX, clientY) => {
+    const rect = svgRef.current.getBoundingClientRect();
+    return {
+      x: ((clientX - rect.left) / rect.width) * MAP_WIDTH,
+      y: ((clientY - rect.top) / rect.height) * MAP_HEIGHT
+    };
+  };
+
+  const zoomAt = (factor, point) => {
+    setView((current) => {
+      const nextK = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, current.k * factor));
+      const origX = (point.x - current.x) / current.k;
+      const origY = (point.y - current.y) / current.k;
+      return nextK === ZOOM_MIN
+        ? { k: 1, x: 0, y: 0 }
+        : { k: nextK, x: point.x - origX * nextK, y: point.y - origY * nextK };
+    });
+  };
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (event) => {
+      event.preventDefault();
+      zoomAt(event.deltaY < 0 ? 1.2 : 1 / 1.2, toSvgPoint(event.clientX, event.clientY));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const onPointerDown = (event) => {
+    if (view.k === 1) return;
+    drag.current = { startX: event.clientX, startY: event.clientY, viewX: view.x, viewY: view.y };
+    moved.current = false;
+    // setPointerCapture can throw (e.g. InvalidPointerId) for pointer types/ids some browsers
+    // won't capture; panning still works without it, it just won't track past the element edge.
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* non-fatal */ }
+  };
+  const onPointerMove = (event) => {
+    if (!drag.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const dx = ((event.clientX - drag.current.startX) / rect.width) * MAP_WIDTH;
+    const dy = ((event.clientY - drag.current.startY) / rect.height) * MAP_HEIGHT;
+    if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
+    setView((current) => ({ ...current, x: drag.current.viewX + dx, y: drag.current.viewY + dy }));
+  };
+  const onPointerUp = () => { drag.current = null; };
+
+  const zoomIn = () => zoomAt(1.4, { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
+  const zoomOut = () => zoomAt(1 / 1.4, { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
+  const reset = () => setView({ k: 1, x: 0, y: 0 });
+
+  // Suppresses the click that would otherwise fire on the island the pointer happens to be
+  // over when a drag gesture ends, so panning never gets mistaken for a selection.
+  const guardClick = (handler) => (...args) => { if (!moved.current) handler(...args); };
+
+  return { svgRef, view, onPointerDown, onPointerMove, onPointerUp, zoomIn, zoomOut, reset, guardClick };
+}
+
 function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) {
   const bounds = useMemo(() => boundsForFeatures(features), [features]);
   const project = useMemo(() => createProjector(bounds, MAP_WIDTH, MAP_HEIGHT), [bounds]);
   const totals = Array.from(locationTotals.values()).map((row) => Math.max(0, row.amount));
   const maxAmount = Math.max(...totals, 1);
+  const zoom = useMapZoom();
+  const selectIsland = zoom.guardClick(onSelectIsland);
 
   const featureItems = features.map((feature, index) => {
     const key = normalizeKey(featureJoinKey(feature));
@@ -598,7 +727,22 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
 
   return (
     <div className="map-wrap">
-      <svg viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} role="img" aria-label="Green Fund spending map">
+      <div className="map-zoom-controls">
+        <button onClick={zoom.zoomIn} aria-label="Zoom in">+</button>
+        <button onClick={zoom.zoomOut} aria-label="Zoom out">−</button>
+        <button onClick={zoom.reset} aria-label="Reset zoom" className="map-zoom-reset">Reset</button>
+      </div>
+      <svg
+        ref={zoom.svgRef}
+        viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+        role="img"
+        aria-label="Green Fund spending map"
+        className={zoom.view.k > 1 ? 'zoomed' : ''}
+        onPointerDown={zoom.onPointerDown}
+        onPointerMove={zoom.onPointerMove}
+        onPointerUp={zoom.onPointerUp}
+        onPointerLeave={zoom.onPointerUp}
+      >
         <defs>
           <radialGradient id="moneyGradient" cx="35%" cy="35%" r="70%">
             <stop offset="0%" stopColor="#f7ffe8" />
@@ -607,38 +751,40 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
           </radialGradient>
         </defs>
         <rect className="map-ocean" x="0" y="0" width={MAP_WIDTH} height={MAP_HEIGHT} rx="28" />
-        <g>
-          {baseItems.map((item) => item.path ? (
-            <path key={`base-${item.index}`} className="island-shape" d={item.path} />
-          ) : (
-            <circle key={`base-${item.index}`} className="island-dot" cx={item.x} cy={item.y} r="2" />
-          ))}
-        </g>
-        <g>
-          {activeItems.map((item) => item.path ? (
-            <path
-              key={`active-shape-${item.index}`}
-              className={item.selected ? 'island-shape active selected' : 'island-shape active'}
-              d={item.path}
-              onClick={() => onSelectIsland(item.key)}
-            />
-          ) : null)}
-        </g>
-        <g>
-          {activeItems.map((item) => (
-            <g key={`bubble-${item.index}`} className="bubble-group" onClick={() => onSelectIsland(item.key)}>
-              <circle
-                className={item.selected ? 'money-bubble selected' : 'money-bubble'}
-                cx={item.x}
-                cy={item.y}
-                r={item.radius}
+        <g transform={`translate(${zoom.view.x} ${zoom.view.y}) scale(${zoom.view.k})`}>
+          <g>
+            {baseItems.map((item) => item.path ? (
+              <path key={`base-${item.index}`} className="island-shape" d={item.path} />
+            ) : (
+              <circle key={`base-${item.index}`} className="island-dot" cx={item.x} cy={item.y} r="2" />
+            ))}
+          </g>
+          <g>
+            {activeItems.map((item) => item.path ? (
+              <path
+                key={`active-shape-${item.index}`}
+                className={item.selected ? 'island-shape active selected' : 'island-shape active'}
+                d={item.path}
+                onClick={() => selectIsland(item.key)}
               />
-              <text x={item.x} y={item.y + 4} textAnchor="middle" className="bubble-emoji">
-                {item.total.amount > 100_000_000 ? '💰' : item.total.amount > 20_000_000 ? '💵' : '💲'}
-              </text>
-              <title>{item.key}: {formatMoney(item.total.amount, false)}</title>
-            </g>
-          ))}
+            ) : null)}
+          </g>
+          <g>
+            {activeItems.map((item) => (
+              <g key={`bubble-${item.index}`} className="bubble-group" onClick={() => selectIsland(item.key)}>
+                <circle
+                  className={item.selected ? 'money-bubble selected' : 'money-bubble'}
+                  cx={item.x}
+                  cy={item.y}
+                  r={item.radius}
+                />
+                <text x={item.x} y={item.y + 4} textAnchor="middle" className="bubble-emoji">
+                  {item.total.amount > 100_000_000 ? '💰' : item.total.amount > 20_000_000 ? '💵' : '💲'}
+                </text>
+                <title>{item.key}: {formatMoney(item.total.amount, false)}</title>
+              </g>
+            ))}
+          </g>
         </g>
       </svg>
       <div className="map-legend">
@@ -696,26 +842,176 @@ function IslandDetails({ island, rows }) {
   );
 }
 
-function DataQuality({ totals, unmappedProjects }) {
+function qaStatus(overrides, projectCode) {
+  return overrides[projectCode]?.status || 'open';
+}
+
+function DataQualityView({
+  selectedIslandData,
+  filteredRows,
+  unmappedProjects,
+  qaResearch,
+  overrides,
+  setOverride,
+  clearOverride,
+  unlocked,
+  setUnlocked
+}) {
+  const [passwordInput, setPasswordInput] = useState('');
+  const counts = useMemo(() => {
+    const byStatus = { open: 0, assigned: 0, send_rti: 0 };
+    unmappedProjects.forEach((row) => { byStatus[qaStatus(overrides, row.project_code)] += 1; });
+    return byStatus;
+  }, [unmappedProjects, overrides]);
+
+  const tryUnlock = () => {
+    if (passwordInput === QA_PASSWORD) setUnlocked(true);
+    setPasswordInput('');
+  };
+
+  const exportOverrides = () => {
+    const assigned = Object.fromEntries(Object.entries(overrides).filter(([, o]) => o?.status));
+    const blob = new Blob([JSON.stringify(assigned, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'green_fund_qa_overrides.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="quality-panel">
-      <div className="quality-grid">
-        <span><b>{totals.unmappedProjects}</b><small>unmapped projects</small></span>
-        <span><b>{totals.multiLocation}</b><small>multi-island projects</small></span>
-      </div>
-      <p>
-        Unmapped projects could not be tied to a specific island. Projects covering several islands are split
-        evenly across them on the map. Check these figures when exact per-island amounts matter.
-      </p>
-      <div className="unmapped-list">
-        {unmappedProjects.slice(0, 8).map((row) => (
-          <div key={row.project_code}>
-            <b>{row.project_name}</b>
-            <small>{formatMoney(row.total_mvr)} · {row.category}</small>
+    <>
+      {selectedIslandData ? (
+        <section className="card">
+          <div className="section-title">Island details · {selectedIslandData.join_key}</div>
+          <IslandDetails island={selectedIslandData} rows={filteredRows} />
+        </section>
+      ) : (
+        <section className="card empty-detail">
+          <span>🗺️</span>
+          <p>Select an island on the money map to see its project breakdown here.</p>
+        </section>
+      )}
+
+      <section className="kpi-grid">
+        <Kpi icon="❓" label="Needs review" value={counts.open} detail="No lead yet" />
+        <Kpi icon="✅" label="Assigned" value={counts.assigned} detail="Atoll/island confirmed" />
+        <Kpi icon="📨" label="Send RTI" value={counts.send_rti} detail="No public info found" />
+      </section>
+
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <div className="section-title">Unlock editing</div>
+            <p className="qa-note">Password-gated so only reviewers can assign locations or export overrides. Anyone can read the research below.</p>
           </div>
-        ))}
+        </div>
+        {unlocked ? (
+          <span className="qa-unlocked-badge">🔓 Editing unlocked for this session</span>
+        ) : (
+          <div className="qa-lock">
+            <input
+              type="password"
+              placeholder="QA password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && tryUnlock()}
+            />
+            <button className="ghost-button" onClick={tryUnlock}>Unlock</button>
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <div className="section-title">Unmapped projects</div>
+            <p>
+              Research is generated offline by <code>npm run research</code> (Haiku 4.5 with web search) and
+              committed as static data. Assign an atoll/island once a source confirms it, or mark it for an RTI request.
+            </p>
+          </div>
+          <strong>{unmappedProjects.length} projects</strong>
+        </div>
+        <div className="qa-list">
+          {unmappedProjects.map((row) => (
+            <QaCard
+              key={row.project_code}
+              project={row}
+              research={qaResearch?.[row.project_code]}
+              override={overrides[row.project_code]}
+              unlocked={unlocked}
+              onAssign={(patch) => setOverride(row.project_code, patch)}
+              onClear={() => clearOverride(row.project_code)}
+            />
+          ))}
+        </div>
+        {unlocked && (
+          <div className="qa-export">
+            <button className="ghost-button" onClick={exportOverrides}>⬇ Export overrides JSON</button>
+            <span className="qa-note">Commit the download to <code>data/green_fund_qa_overrides.json</code> so it applies for every visitor.</span>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function QaCard({ project, research, override, unlocked, onAssign, onClear }) {
+  const status = override?.status || 'open';
+  const [atoll, setAtoll] = useState(override?.atoll || research?.suggested_atoll || '');
+  const [island, setIsland] = useState(override?.island || research?.suggested_island || '');
+
+  const saveAssignment = () => {
+    if (!atoll.trim() || !island.trim()) return;
+    onAssign({ status: 'assigned', atoll: atoll.trim(), island: island.trim(), join_key: `${atoll.trim()}.${island.trim()}` });
+  };
+
+  return (
+    <article className="qa-card">
+      <div className="qa-card-head">
+        <div>
+          <b>{project.project_name}</b>
+          <small>{project.project_code} · {project.category} · {formatMoney(project.total_mvr)}</small>
+        </div>
+        <span className={`qa-status ${status}`}>
+          {status === 'open' ? 'Needs review' : status === 'assigned' ? `Assigned: ${override.join_key}` : 'Send RTI to verify'}
+        </span>
       </div>
-    </div>
+
+      {research ? (
+        <div className="qa-research">
+          <dl>
+            <dt>Lead institution</dt><dd>{research.lead_institution || 'Unknown'}</dd>
+            <dt>Status</dt><dd>{research.status || 'unknown'}</dd>
+            <dt>Suggested location</dt>
+            <dd>{research.suggested_atoll && research.suggested_island ? `${research.suggested_atoll}.${research.suggested_island}` : 'Not found'}</dd>
+            <dt>Confidence</dt><dd>{research.confidence || 'none'}</dd>
+          </dl>
+          {research.summary && <p>{research.summary}</p>}
+          {research.sources?.length > 0 && (
+            <div className="qa-sources">
+              {research.sources.map((src, i) => (
+                <a key={i} href={src.url} target="_blank" rel="noreferrer">🔗 {src.title || src.url}</a>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="qa-no-research">No AI research yet for this project. Run <code>npm run research</code> to generate it.</p>
+      )}
+
+      {unlocked && (
+        <div className="qa-assign-row">
+          <input placeholder="Atoll code (e.g. Sh)" value={atoll} onChange={(e) => setAtoll(e.target.value)} />
+          <input placeholder="Island name" value={island} onChange={(e) => setIsland(e.target.value)} />
+          <button className="ghost-button" onClick={saveAssignment}>Save assignment</button>
+          <button className="ghost-button" onClick={() => onAssign({ status: 'send_rti' })}>Send RTI to verify</button>
+          {status !== 'open' && <button className="link-button" onClick={onClear}>Clear</button>}
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -1396,6 +1692,67 @@ function CollectionChart({ detail }) {
       };
     }
 
+    if (mode === 'heatmap') {
+      // One row per atoll (all atolls, north to south), one column per month, colored by that
+      // atoll's own share of its complete-year average annual collection - so a small atoll's
+      // high season shows up as clearly as a big atoll's, instead of being washed out by scale.
+      const rows = atollList;
+      const cells = [];
+      let maxShare = 0;
+      rows.forEach((a, rowIdx) => {
+        const sums = Array(12).fill(0);
+        const counts = Array(12).fill(0);
+        const byMonthYear = new Map();
+        detail.forEach((r) => {
+          if (r.atoll_code !== a.code || !types.has(r.establishment_type)) return;
+          if (!completeYears.has(r.month.slice(0, 4))) return;
+          const mIdx = Number(r.month.slice(5, 7)) - 1;
+          const key = mIdx + ':' + r.month.slice(0, 4);
+          byMonthYear.set(key, (byMonthYear.get(key) || 0) + r[amountKey]);
+        });
+        byMonthYear.forEach((val, key) => {
+          const mIdx = Number(key.split(':')[0]);
+          sums[mIdx] += val;
+          counts[mIdx] += 1;
+        });
+        const avg = sums.map((s, idx) => (counts[idx] ? s / counts[idx] : 0));
+        const yearTotal = avg.reduce((x, y) => x + y, 0) || 1;
+        // rows render bottom-to-top on a category axis, so reverse the index to put north on top.
+        const yIdx = rows.length - 1 - rowIdx;
+        avg.forEach((v, mIdx) => {
+          const share = (v / yearTotal) * 100;
+          maxShare = Math.max(maxShare, share);
+          cells.push([mIdx, yIdx, Math.round(share * 10) / 10, Math.round(v)]);
+        });
+      });
+      return {
+        tooltip: {
+          formatter: (p) => `${rows[rows.length - 1 - p.value[1]].label}, ${MONTH_NAMES[p.value[0]]}<br/>${p.value[2]}% of FY total &middot; ${fmtAxis(p.value[3], currency)} avg`
+        },
+        grid: { left: 90, right: 24, top: 20, bottom: 76 },
+        xAxis: { type: 'category', data: MONTH_NAMES, position: 'top', splitArea: { show: true } },
+        yAxis: { type: 'category', data: [...rows].reverse().map((a) => a.code), splitArea: { show: true } },
+        visualMap: {
+          dimension: 2,
+          min: 0,
+          max: Math.max(10, Math.ceil(maxShare)),
+          calculable: true,
+          orient: 'horizontal',
+          left: 'center',
+          bottom: 0,
+          inRange: { color: ['#EAF2EE', '#7FB8AC', '#0E5C51'] },
+          text: ['High season', 'Low season'],
+          textStyle: { color: '#51665F', fontSize: 11 }
+        },
+        series: [{
+          type: 'heatmap',
+          data: cells,
+          label: { show: false },
+          emphasis: { itemStyle: { borderColor: '#0A3B34', borderWidth: 1.5 } }
+        }]
+      };
+    }
+
     // trend mode
     const series = groups.map((g) => {
       const byMonth = new Map();
@@ -1429,6 +1786,7 @@ function CollectionChart({ detail }) {
   useEffect(() => {
     if (!chartRef.current) return;
     if (!instanceRef.current) instanceRef.current = echarts.init(chartRef.current);
+    instanceRef.current.resize();
     instanceRef.current.setOption(option, true);
     const onResize = () => instanceRef.current && instanceRef.current.resize();
     window.addEventListener('resize', onResize);
@@ -1456,6 +1814,8 @@ function CollectionChart({ detail }) {
           <p>
             {mode === 'trend'
               ? `Monthly collection, one line per ${groupBy === 'type' ? 'establishment type (atolls summed)' : 'atoll (types summed)'}. Drag the slider to change the date range; click legend items to toggle lines.`
+              : mode === 'heatmap'
+              ? 'Every atoll, one row each (north to south), colored by its own share of a typical year - so each atoll\'s high and low season shows up regardless of how big or small it is.'
               : seasonSeries === 'year'
               ? 'Collection by calendar month, with one line per year. Use it to compare the seasonal pattern between years for the selected atolls and establishments.'
               : `Average collection by calendar month across complete years, with one line per ${groupBy === 'type' ? 'establishment type' : 'atoll'}. The highest month is the peak season and the lowest is the off season.`}
@@ -1464,6 +1824,7 @@ function CollectionChart({ detail }) {
         <div className="mode-row">
           <button className={mode === 'trend' ? 'pill active' : 'pill'} onClick={() => setMode('trend')}>Trend</button>
           <button className={mode === 'season' ? 'pill active' : 'pill'} onClick={() => setMode('season')}>Seasonality</button>
+          <button className={mode === 'heatmap' ? 'pill active' : 'pill'} onClick={() => setMode('heatmap')}>Atoll heatmap</button>
         </div>
       </div>
 
@@ -1477,7 +1838,7 @@ function CollectionChart({ detail }) {
             </div>
           </div>
         )}
-        {!(mode === 'season' && seasonSeries === 'year') && (
+        {mode !== 'heatmap' && !(mode === 'season' && seasonSeries === 'year') && (
           <div className="control-block">
             <span className="control-label">Break down by</span>
             <div className="mode-row">
@@ -1505,22 +1866,24 @@ function CollectionChart({ detail }) {
         </div>
       </div>
 
-      <div className="control-block">
-        <span className="control-label">Atolls ({selectedAtolls.size} shown)
-          <button className="link-button" onClick={() => setAtolls(new Set(atollList.map((a) => a.code)))}>All</button>
-          <button className="link-button" onClick={() => setAtolls(new Set())}>None</button>
-          <button className="link-button" onClick={() => setAtolls(new Set(topFiveCodes))}>Top 5</button>
-        </span>
-        <div className="chip-row atoll-chips">
-          {atollList.map((a) => (
-            <button key={a.code} className={selectedAtolls.has(a.code) ? 'chip on' : 'chip'} onClick={() => toggleAtoll(a.code)}>
-              {a.code}
-            </button>
-          ))}
+      {mode !== 'heatmap' && (
+        <div className="control-block">
+          <span className="control-label">Atolls ({selectedAtolls.size} shown)
+            <button className="link-button" onClick={() => setAtolls(new Set(atollList.map((a) => a.code)))}>All</button>
+            <button className="link-button" onClick={() => setAtolls(new Set())}>None</button>
+            <button className="link-button" onClick={() => setAtolls(new Set(topFiveCodes))}>Top 5</button>
+          </span>
+          <div className="chip-row atoll-chips">
+            {atollList.map((a) => (
+              <button key={a.code} className={selectedAtolls.has(a.code) ? 'chip on' : 'chip'} onClick={() => toggleAtoll(a.code)}>
+                {a.code}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div ref={chartRef} className="echart" />
+      <div ref={chartRef} className="echart" style={mode === 'heatmap' ? { height: Math.max(420, atollList.length * 24 + 100) } : undefined} />
     </section>
   );
 }
