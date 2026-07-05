@@ -864,6 +864,11 @@ function DataQualityView({
     return byStatus;
   }, [unmappedProjects, overrides]);
 
+  const coFinancedCount = useMemo(
+    () => unmappedProjects.filter((row) => qaResearch?.[row.project_code]?.co_financed_by).length,
+    [unmappedProjects, qaResearch]
+  );
+
   const tryUnlock = () => {
     if (passwordInput === QA_PASSWORD) setUnlocked(true);
     setPasswordInput('');
@@ -898,7 +903,22 @@ function DataQualityView({
         <Kpi icon="❓" label="Needs review" value={counts.open} detail="No lead yet" />
         <Kpi icon="✅" label="Assigned" value={counts.assigned} detail="Atoll/island confirmed" />
         <Kpi icon="📨" label="Send RTI" value={counts.send_rti} detail="No public info found" />
+        <Kpi icon="🏛️" label="Donor co-financed" value={coFinancedCount} detail="Green Fund is only part of the money" />
       </section>
+
+      {coFinancedCount > 0 && (
+        <section className="card qa-donor-note">
+          <div className="section-title">🏛️ A different kind of RTI question</div>
+          <p>
+            {coFinancedCount} of these projects are large ADB / World Bank / OFID / GCF-financed programmes where the
+            Green Fund figure shown here is only a slice of the total project cost, not the whole thing - donors
+            cover the rest. The public record rarely explains why a project that already has international
+            financing also draws on the Green Fund, or what specifically that Green Fund portion pays for. Cards
+            marked <b>🏛️ Donor co-financed</b> below should be RTI'd on that question specifically, separately from
+            any location RTI.
+          </p>
+        </section>
+      )}
 
       <section className="card">
         <div className="card-header">
@@ -982,6 +1002,9 @@ function QaCard({ project, research, override, unlocked, onAssign, onClear }) {
 
       {research ? (
         <div className="qa-research">
+          {research.co_financed_by && (
+            <p className="qa-donor-badge">🏛️ Donor co-financed: {research.co_financed_by} - the amount here is only the Green Fund's slice.</p>
+          )}
           <dl>
             <dt>Lead institution</dt><dd>{research.lead_institution || 'Unknown'}</dd>
             <dt>Status</dt><dd>{research.status || 'unknown'}</dd>

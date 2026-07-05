@@ -52,7 +52,8 @@
           "title": "GMEIWMP Audit Report 2024"
         }
       ],
-      "summary": "ADB/AIIB/IsDB-financed Greater Male Environmental Improvement and Waste Management Project (GMEIWMP), covering Thilafushi dumpsite remediation and Male'/Villimale'/Hulhumale' transfer stations; ongoing, completion expected late 2026."
+      "summary": "ADB/AIIB/IsDB-financed Greater Male Environmental Improvement and Waste Management Project (GMEIWMP), covering Thilafushi dumpsite remediation and Male'/Villimale'/Hulhumale' transfer stations; ongoing, completion expected late 2026.",
+      "co_financed_by": "ADB, AIIB and Islamic Development Bank (GMEIWMP total ~$167.5M)"
     },
     "P-MEE001-114": {
       "lead_institution": "Ministry of Environment and Energy, with WAMCO operating facilities",
@@ -78,7 +79,8 @@
           "title": "Consultations Plan - MCEP Zone V and IV"
         }
       ],
-      "summary": "World Bank-financed (P160739, US$17.5M IDA grant) nationwide Maldives Clean Environment Project covering Regional Waste Management Centers (e.g. Vandhoo in Raa) and Island Waste & Resource Management Centers across Zones II/IV/V (Dhaalu, Faafu, Laamu, Meemu, Thaa) - not a single atoll/island. Still active per June 2025 procurement documents; World Bank flagged implementation challenges at Vandhoo facility."
+      "summary": "World Bank-financed (P160739, US$17.5M IDA grant) nationwide Maldives Clean Environment Project covering Regional Waste Management Centers (e.g. Vandhoo in Raa) and Island Waste & Resource Management Centers across Zones II/IV/V (Dhaalu, Faafu, Laamu, Meemu, Thaa) - not a single atoll/island. Still active per June 2025 procurement documents; World Bank flagged implementation challenges at Vandhoo facility.",
+      "co_financed_by": "World Bank IDA grant (Maldives Clean Environment Project, $17.5M)"
     },
     "P-MEE062-001": {
       "lead_institution": "Ministry of Climate Change, Environment and Energy (POISED PMU), with STELCO/FENAKA",
@@ -100,7 +102,8 @@
           "title": "POISED - Ministry of Tourism and Environment"
         }
       ],
-      "summary": "Likely a late-stage/closeout-year (2025) financial activity of the multi-island POISED renewable energy program. POISED spans 8+ atolls and up to 160 outer islands, so no single atoll/island applies. Verify exact nature via RTI."
+      "summary": "Likely a late-stage/closeout-year (2025) financial activity of the multi-island POISED renewable energy program. POISED spans 8+ atolls and up to 160 outer islands, so no single atoll/island applies. Verify exact nature via RTI.",
+      "co_financed_by": "ADB and Climate Investment Funds (POISED)"
     },
     "P-MEE062-100": {
       "lead_institution": "Ministry of Environment (POISED PMU), with STELCO and FENAKA Corporation",
@@ -122,7 +125,8 @@
           "title": "POISED - Ministry of Tourism and Environment"
         }
       ],
-      "summary": "ADB/CIF-financed POISED renewable energy program installing solar-battery-diesel hybrid systems across ~70-160 outer islands in 8+ atolls; explicitly multi-island national scope, no single-island attribution appropriate."
+      "summary": "ADB/CIF-financed POISED renewable energy program installing solar-battery-diesel hybrid systems across ~70-160 outer islands in 8+ atolls; explicitly multi-island national scope, no single-island attribution appropriate.",
+      "co_financed_by": "ADB and Climate Investment Funds (POISED)"
     },
     "P-WST088-001": {
       "lead_institution": "Ministry of Environment, Climate Change and Technology / GMEIWMP Project Management Unit",
@@ -144,7 +148,8 @@
           "title": "Expected completion late 2026"
         }
       ],
-      "summary": "Continuation entry of the ADB/AIIB/IsDB-financed GMEIWMP program, same as P-MEE001-112, covering Greater Male region and outer islands; ongoing, completion expected late 2026."
+      "summary": "Continuation entry of the ADB/AIIB/IsDB-financed GMEIWMP program, same as P-MEE001-112, covering Greater Male region and outer islands; ongoing, completion expected late 2026.",
+      "co_financed_by": "ADB, AIIB and Islamic Development Bank (GMEIWMP total ~$167.5M)"
     },
     "P-WST089-001": {
       "lead_institution": "Ministry of Environment, Climate Change and Technology - Waste Management Department",
@@ -162,7 +167,8 @@
           "title": "Consultations Plan - MCEP Zone V and IV"
         }
       ],
-      "summary": "Same nationwide World Bank-financed Maldives Clean Environment Project as P-MEE001-114, spanning multiple waste management zones rather than a single island."
+      "summary": "Same nationwide World Bank-financed Maldives Clean Environment Project as P-MEE001-114, spanning multiple waste management zones rather than a single island.",
+      "co_financed_by": "World Bank IDA grant (Maldives Clean Environment Project, $17.5M)"
     },
     "P-WST110-001": {
       "lead_institution": "Waste Management Corporation Limited (WAMCO), with Kulhudhuffushi City Council and MACCS",
@@ -208,7 +214,8 @@
           "title": "Consultations Plan - MCEP Zone V and IV"
         }
       ],
-      "summary": "Ministry tender for bio-treatment of organic waste pilot systems in 4 islands of Zone 4 & 5 under MCEP; exact islands not confirmed publicly. Verify via RTI."
+      "summary": "Ministry tender for bio-treatment of organic waste pilot systems in 4 islands of Zone 4 & 5 under MCEP; exact islands not confirmed publicly. Verify via RTI.",
+      "co_financed_by": "World Bank IDA grant (Maldives Clean Environment Project component)"
     },
     "P-OTH007-001": {
       "lead_institution": "Ministry of Environment, Climate Change and Technology, with Addu City Council",
@@ -240,7 +247,8 @@
           "title": "ASPIRE Program - CIF"
         }
       ],
-      "summary": "ASPIRE is a World Bank/CIF-financed national program (2014) mobilizing private solar investment across multiple islands (6.5MW installed); not tied to a single island, winding down/completed by 2024-2025, succeeded by ARISE."
+      "summary": "ASPIRE is a World Bank/CIF-financed national program (2014) mobilizing private solar investment across multiple islands (6.5MW installed); not tied to a single island, winding down/completed by 2024-2025, succeeded by ARISE.",
+      "co_financed_by": "World Bank and Climate Investment Funds (ASPIRE)"
     },
     "P-WST032-001": {
       "lead_institution": "Ministry of Climate Change, Environment and Energy, with EPA, URA, WAMCO; financed by ADB/AIIB/Japan Fund for Poverty Reduction",
@@ -258,7 +266,8 @@
           "title": "Govt launches Greater Male Waste to Energy Project worth USD 304 million"
         }
       ],
-      "summary": "Greater Male Waste-to-Energy Project (500 tpd plant) at Thilafushi, Kaafu Atoll; under construction as of 2025, completion expected late 2026."
+      "summary": "Greater Male Waste-to-Energy Project (500 tpd plant) at Thilafushi, Kaafu Atoll; under construction as of 2025, completion expected late 2026.",
+      "co_financed_by": "ADB, AIIB and Japan Fund for Poverty Reduction (Greater Male Waste-to-Energy, ~$151M)"
     },
     "P-WST032-002": {
       "lead_institution": "Ministry of Climate Change, Environment and Energy, with EPA, URA, WAMCO",
@@ -272,7 +281,8 @@
           "title": "51077-003: Greater Male Waste-to-Energy Project"
         }
       ],
-      "summary": "Same Thilafushi Greater Male Waste-to-Energy Project as P-WST032-001, a later-year (2025) continuation of construction spending."
+      "summary": "Same Thilafushi Greater Male Waste-to-Energy Project as P-WST032-001, a later-year (2025) continuation of construction spending.",
+      "co_financed_by": "ADB, AIIB and Japan Fund for Poverty Reduction (Greater Male Waste-to-Energy, ~$151M)"
     },
     "P-WST011-001": {
       "lead_institution": "Ministry of Climate Change, Environment and Energy / WAMCO, OFID-financed Zone 1 program",
@@ -330,7 +340,8 @@
           "title": "Loan Agreement signed with OFID"
         }
       ],
-      "summary": "Zone 1 (Haa Alif, Haa Dhaalu, Shaviyani atolls) component of the OFID-financed water/sanitation/waste program (US$50M loan, status Completed per OPEC Fund), covering construction/equipping of 21 island waste management centres. Spans multiple islands, no single location; verify via RTI."
+      "summary": "Zone 1 (Haa Alif, Haa Dhaalu, Shaviyani atolls) component of the OFID-financed water/sanitation/waste program (US$50M loan, status Completed per OPEC Fund), covering construction/equipping of 21 island waste management centres. Spans multiple islands, no single location; verify via RTI.",
+      "co_financed_by": "OPEC Fund for International Development (OFID, $50M loan)"
     },
     "P-MEE002-019": {
       "lead_institution": "Ministry of Environment and Energy",
@@ -344,7 +355,8 @@
           "title": "Zone 1 waste equipment context"
         }
       ],
-      "summary": "Sibling line item to P-MEE002-018, procuring waste management equipment for Zone 1 (HA/HDh/Sh) island waste centres; short 6-month 2019 window suggests a completed equipment delivery order."
+      "summary": "Sibling line item to P-MEE002-018, procuring waste management equipment for Zone 1 (HA/HDh/Sh) island waste centres; short 6-month 2019 window suggests a completed equipment delivery order.",
+      "co_financed_by": "OPEC Fund for International Development (OFID, related to same loan)"
     },
     "P-MEE015-006": {
       "lead_institution": "Ministry of Environment and Energy",
@@ -502,7 +514,8 @@
           "title": "Building Climate Resilient Safer Islands in the Maldives (BCRSI)"
         }
       ],
-      "summary": "Building Climate Resilient Safer Islands (BCRSI) is a real, ongoing GCF/JICA-financed program (FP165) running through ~2030, focused on coastal protection. Public documentation identifies target sites in Laamu Atoll and Addu City - not Baa/Raa as the recorded data hints - so this record's specific island(s) could not be confirmed. Verify via RTI."
+      "summary": "Building Climate Resilient Safer Islands (BCRSI) is a real, ongoing GCF/JICA-financed program (FP165) running through ~2030, focused on coastal protection. Public documentation identifies target sites in Laamu Atoll and Addu City - not Baa/Raa as the recorded data hints - so this record's specific island(s) could not be confirmed. Verify via RTI.",
+      "co_financed_by": "Green Climate Fund and JICA (Building Climate Resilient Safer Islands)"
     },
     "P-WST033-001": {
       "lead_institution": null,
@@ -628,7 +641,8 @@
           "title": "Handover of Water Networks in Raa Maduvvari and Baa Dharavandhoo - UNDP"
         }
       ],
-      "summary": "Very likely the Maldives Green Fund's counterpart-financing line for the GCF/UNDP 'Supporting Vulnerable Communities in Maldives to Manage Climate Change-Induced Water Shortages' program (FP007): 4 water hub islands (HDh.Nolhivaranfaru, Sh.Foakaidhoo, R.Maduvvari, B.Dharavandhoo) plus 25 rainwater harvesting islands across 13 atolls, serving ~106,000 people. Dates (Jun 2019-Jun 2022) match the hub islands' inauguration/handover timeline closely. Genuinely multi-atoll; no single location applies."
+      "summary": "Very likely the Maldives Green Fund's counterpart-financing line for the GCF/UNDP 'Supporting Vulnerable Communities in Maldives to Manage Climate Change-Induced Water Shortages' program (FP007): 4 water hub islands (HDh.Nolhivaranfaru, Sh.Foakaidhoo, R.Maduvvari, B.Dharavandhoo) plus 25 rainwater harvesting islands across 13 atolls, serving ~106,000 people. Dates (Jun 2019-Jun 2022) match the hub islands' inauguration/handover timeline closely. Genuinely multi-atoll; no single location applies.",
+      "co_financed_by": "Green Climate Fund via UNDP (FP007 water security program)"
     },
     "P-MEE083-001": {
       "lead_institution": "Ministry of Environment and Energy, with WAMCO as eventual operator",
@@ -700,7 +714,8 @@
           "title": "Auditor General - Outer Islands Harbors Project (Phase III) 2020-2023 Financial Statement Audit"
         }
       ],
-      "summary": "Most likely OFID's 'Outer Islands Harbors, Water Supply and Sewerage Facilities Project' (approved 2019, labeled Phase III), spanning 13+ islands across five atolls (Baa, Shaviyani, Haa Dhaalu, Gaafu Dhaalu, Gaafu Alifu), executed by the Ministry of Construction, Housing and Infrastructure. Genuinely multi-atoll; no single location applies."
+      "summary": "Most likely OFID's 'Outer Islands Harbors, Water Supply and Sewerage Facilities Project' (approved 2019, labeled Phase III), spanning 13+ islands across five atolls (Baa, Shaviyani, Haa Dhaalu, Gaafu Dhaalu, Gaafu Alifu), executed by the Ministry of Construction, Housing and Infrastructure. Genuinely multi-atoll; no single location applies.",
+      "co_financed_by": "OPEC Fund for International Development (OFID loan)"
     },
     "P-WAS031-001": {
       "lead_institution": "Ministry of National Planning, Housing and Infrastructure, implemented by MWSC",
@@ -776,7 +791,8 @@
           "title": "VP inaugurates powerhouse and sewerage restoration in Fuvahmulah City"
         }
       ],
-      "summary": "Fuvahmulah's (Gnaviyani atoll) water and sewerage network, built by Sierra Construction (partly Kuwait Fund-financed), operational by 2017-2019, consistent with this line item's 2019 window."
+      "summary": "Fuvahmulah's (Gnaviyani atoll) water and sewerage network, built by Sierra Construction (partly Kuwait Fund-financed), operational by 2017-2019, consistent with this line item's 2019 window.",
+      "co_financed_by": "Kuwait Fund for Arab Economic Development (partial)"
     },
     "P-WAS062-001": {
       "lead_institution": null,
@@ -825,7 +841,8 @@
           "title": "Contracts Signed to Develop Water Supply and Sewerage System in 34 Islands"
         }
       ],
-      "summary": "Confirmed as OFID Phase III 'Outer Islands Harbors, Water Supply and Sewerage Facilities Project', a US$50M loan signed Jan 2020 covering ~13 outer islands across multiple atolls (including Haa Alif, Baa, Alif Dhaal, Thaa). Genuinely multi-island by design, no single atoll/island applies."
+      "summary": "Confirmed as OFID Phase III 'Outer Islands Harbors, Water Supply and Sewerage Facilities Project', a US$50M loan signed Jan 2020 covering ~13 outer islands across multiple atolls (including Haa Alif, Baa, Alif Dhaal, Thaa). Genuinely multi-island by design, no single atoll/island applies.",
+      "co_financed_by": "OPEC Fund for International Development (OFID Phase III, $50M loan)"
     },
     "P-WST007-001": {
       "lead_institution": "Ministry of Climate Change, Environment and Energy, with WAMCO as operator",
