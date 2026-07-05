@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import * as echarts from 'echarts/core';
 import { LineChart, HeatmapChart } from 'echarts/charts';
 import {
@@ -46,17 +48,12 @@ function readLocalOverrides() {
   }
 }
 import {
-  boundsForFeatures,
   convexHull,
-  createProjector,
   featureCentroid,
   featureJoinKey,
-  featurePath,
   normalizeKey
 } from './geo.js';
 
-const MAP_WIDTH = 620;
-const MAP_HEIGHT = 820;
 const EMOJIS = ['💲', '💵', '💰', '💸', '🤑'];
 
 // Geographic order, north to south, matching how islands/atolls are listed top-down.
@@ -631,208 +628,147 @@ function Kpi({ icon, label, value, detail }) {
   );
 }
 
-const ZOOM_MIN = 1;
-const ZOOM_MAX = 10;
-
-// Native SVG transform pan/zoom: wheel zooms toward the cursor, drag pans, buttons cover
-// touch/no-wheel input. No charting/gesture library needed for a single transformed <g>.
-function useMapZoom() {
-  const svgRef = useRef(null);
-  const [view, setView] = useState({ k: 1, x: 0, y: 0 });
-  const drag = useRef(null);
-  const moved = useRef(false);
-
-  const toSvgPoint = (clientX, clientY) => {
-    const rect = svgRef.current.getBoundingClientRect();
-    return {
-      x: ((clientX - rect.left) / rect.width) * MAP_WIDTH,
-      y: ((clientY - rect.top) / rect.height) * MAP_HEIGHT
-    };
-  };
-
-  const zoomAt = (factor, point) => {
-    setView((current) => {
-      const nextK = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, current.k * factor));
-      const origX = (point.x - current.x) / current.k;
-      const origY = (point.y - current.y) / current.k;
-      return nextK === ZOOM_MIN
-        ? { k: 1, x: 0, y: 0 }
-        : { k: nextK, x: point.x - origX * nextK, y: point.y - origY * nextK };
-    });
-  };
+// Real OpenStreetMap tiles under our own markers/outlines - Leaflet handles projection,
+// pan and zoom natively, which is both more correct and less code than hand-rolling an
+// equirectangular projector for a hand-drawn "ocean" rectangle.
+function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const layerRef = useRef(null);
+  const fitDoneRef = useRef(false);
+  const pointsRef = useRef([]);
 
   useEffect(() => {
-    const el = svgRef.current;
-    if (!el) return;
-    const onWheel = (event) => {
-      event.preventDefault();
-      zoomAt(event.deltaY < 0 ? 1.2 : 1 / 1.2, toSvgPoint(event.clientX, event.clientY));
+    if (!containerRef.current || mapRef.current) return;
+    const map = L.map(containerRef.current, { scrollWheelZoom: true, minZoom: 6, maxZoom: 17 });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    layerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+
+    // The container sits inside a CSS grid column, so it isn't always at its final size the
+    // instant this effect runs - fitBounds against a stale 0-ish size would compute a bogus
+    // zoom. A ResizeObserver catches the moment the container actually gets real dimensions,
+    // whenever that happens, instead of guessing at a fixed delay.
+    const tryFit = () => {
+      if (fitDoneRef.current || !pointsRef.current.length) return;
+      const size = map.getSize();
+      if (size.x === 0 || size.y === 0) return;
+      map.invalidateSize();
+      map.fitBounds(pointsRef.current, { padding: [20, 20] });
+      fitDoneRef.current = true;
     };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    const resizeObserver = new ResizeObserver(tryFit);
+    resizeObserver.observe(containerRef.current);
+    tryFit();
+
+    return () => {
+      resizeObserver.disconnect();
+      map.remove();
+      mapRef.current = null;
+      layerRef.current = null;
+      // React 18 StrictMode mounts, cleans up, then remounts once in dev - if fitBounds
+      // already succeeded on the instance being torn down here, the flag must reset too,
+      // otherwise the surviving remounted map never gets fit (this ref outlives the map).
+      fitDoneRef.current = false;
+    };
   }, []);
 
-  const onPointerDown = (event) => {
-    if (view.k === 1) return;
-    drag.current = { startX: event.clientX, startY: event.clientY, viewX: view.x, viewY: view.y };
-    moved.current = false;
-    // setPointerCapture can throw (e.g. InvalidPointerId) for pointer types/ids some browsers
-    // won't capture; panning still works without it, it just won't track past the element edge.
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* non-fatal */ }
-  };
-  const onPointerMove = (event) => {
-    if (!drag.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = ((event.clientX - drag.current.startX) / rect.width) * MAP_WIDTH;
-    const dy = ((event.clientY - drag.current.startY) / rect.height) * MAP_HEIGHT;
-    if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
-    setView((current) => ({ ...current, x: drag.current.viewX + dx, y: drag.current.viewY + dy }));
-  };
-  const onPointerUp = () => { drag.current = null; };
-
-  const zoomIn = () => zoomAt(1.4, { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
-  const zoomOut = () => zoomAt(1 / 1.4, { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
-  const reset = () => setView({ k: 1, x: 0, y: 0 });
-
-  // Suppresses the click that would otherwise fire on the island the pointer happens to be
-  // over when a drag gesture ends, so panning never gets mistaken for a selection.
-  const guardClick = (handler) => (...args) => { if (!moved.current) handler(...args); };
-
-  return { svgRef, view, onPointerDown, onPointerMove, onPointerUp, zoomIn, zoomOut, reset, guardClick };
-}
-
-function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) {
-  const bounds = useMemo(() => boundsForFeatures(features), [features]);
-  const project = useMemo(() => createProjector(bounds, MAP_WIDTH, MAP_HEIGHT), [bounds]);
   const totals = Array.from(locationTotals.values()).map((row) => Math.max(0, row.amount));
   const maxAmount = Math.max(...totals, 1);
-  const zoom = useMapZoom();
-  const selectIsland = zoom.guardClick(onSelectIsland);
-
-  const featureItems = features.map((feature, index) => {
-    const key = normalizeKey(featureJoinKey(feature));
-    const centroid = featureCentroid(feature);
-    const [x, y] = project(centroid);
-    const total = key ? locationTotals.get(key) : null;
-    const radius = total ? 4 + Math.sqrt(Math.max(total.amount, 0) / maxAmount) * 26 : 2.8;
-    const path = featurePath(feature, project);
-    const active = Boolean(total);
-    const selected = key && selectedIsland === key;
-
-    return { feature, index, key, x, y, radius, path, active, selected, total };
-  });
-
-  const activeItems = featureItems.filter((item) => item.active).sort((a, b) => a.radius - b.radius);
-  const baseItems = featureItems.filter((item) => !item.active);
   const topSpenders = Array.from(locationTotals.values()).sort((a, b) => b.amount - a.amount).slice(0, 5);
 
-  // Outline each atoll from the islands we actually have points for. The source GeoJSON only
-  // has island centroids, not real atoll boundaries, so this is a padded hull around those
-  // points - an indicative outline, not a surveyed administrative boundary.
-  const OUTLINE_PAD = 14;
-  const atollGroups = new Map();
-  featureItems.forEach((item) => {
-    const atollCode = item.key && item.key.split('.')[0];
-    if (!atollCode) return;
-    if (!atollGroups.has(atollCode)) atollGroups.set(atollCode, []);
-    atollGroups.get(atollCode).push([item.x, item.y]);
-  });
-  const atollOutlines = Array.from(atollGroups.entries()).map(([code, points]) => {
-    const cx = points.reduce((s, p) => s + p[0], 0) / points.length;
-    const cy = points.reduce((s, p) => s + p[1], 0) / points.length;
-    if (points.length < 3) {
-      const spread = points.reduce((max, p) => Math.max(max, Math.hypot(p[0] - cx, p[1] - cy)), 0);
-      const r = spread + OUTLINE_PAD;
-      return { code, cx, cy, circleR: r, labelX: cx, labelY: cy - r - 6 };
-    }
-    const hull = convexHull(points);
-    const inflated = hull.map(([x, y]) => {
-      const dx = x - cx;
-      const dy = y - cy;
-      const dist = Math.hypot(dx, dy) || 1;
-      const scale = (dist + OUTLINE_PAD) / dist;
-      return [cx + dx * scale, cy + dy * scale];
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = layerRef.current;
+    if (!map || !layer) return;
+    layer.clearLayers();
+
+    const points = [];
+    const atollGroups = new Map();
+
+    features.forEach((feature) => {
+      const key = normalizeKey(featureJoinKey(feature));
+      const [lon, lat] = featureCentroid(feature);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      points.push([lat, lon]);
+
+      const atollCode = key && key.split('.')[0];
+      if (atollCode) {
+        if (!atollGroups.has(atollCode)) atollGroups.set(atollCode, []);
+        atollGroups.get(atollCode).push([lat, lon]);
+      }
+
+      const total = key ? locationTotals.get(key) : null;
+      if (!total) {
+        L.circleMarker([lat, lon], { radius: 2, className: 'island-dot', weight: 0 }).addTo(layer);
+        return;
+      }
+      const amount = Math.max(total.amount, 0);
+      const diameter = 2 * (6 + Math.sqrt(amount / maxAmount) * 22);
+      const selected = selectedIsland === key;
+      const emoji = amount > 100_000_000 ? '💰' : amount > 20_000_000 ? '💵' : '💲';
+      const marker = L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: '',
+          html: `<div class="money-bubble${selected ? ' selected' : ''}" style="width:${diameter}px;height:${diameter}px;line-height:${diameter}px;font-size:${Math.max(10, diameter * 0.4)}px;">${emoji}</div>`,
+          iconSize: [diameter, diameter],
+          iconAnchor: [diameter / 2, diameter / 2]
+        }),
+        zIndexOffset: selected ? 10000 : Math.round(amount / 1e6)
+      });
+      marker.bindTooltip(`${key}: ${formatMoney(total.amount, false)}`);
+      marker.on('click', () => onSelectIsland(key));
+      marker.addTo(layer);
     });
-    const path = inflated.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ') + ' Z';
-    // Label sits just above the outline's top edge, clear of the bubbles inside it.
-    const topY = Math.min(...inflated.map(([, y]) => y));
-    return { code, cx, cy, path, labelX: cx, labelY: topY - 6 };
-  });
+
+    // Outline each atoll from the islands we actually have points for. The source GeoJSON
+    // only has island centroids, not real atoll boundaries, so this is a padded hull around
+    // those points - an indicative outline, not a surveyed administrative boundary.
+    const PAD_DEG = 0.045;
+    atollGroups.forEach((pts, code) => {
+      const cLat = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const cLon = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      let topLat;
+      if (pts.length < 3) {
+        const spread = pts.reduce((max, p) => Math.max(max, Math.hypot(p[0] - cLat, p[1] - cLon)), 0);
+        const r = spread + PAD_DEG;
+        L.circle([cLat, cLon], { radius: r * 111_000, className: 'atoll-outline-shape' }).addTo(layer);
+        topLat = cLat + r;
+      } else {
+        const hull = convexHull(pts);
+        const inflated = hull.map(([lat, lon]) => {
+          const dLat = lat - cLat;
+          const dLon = lon - cLon;
+          const dist = Math.hypot(dLat, dLon) || 1;
+          const scale = (dist + PAD_DEG) / dist;
+          return [cLat + dLat * scale, cLon + dLon * scale];
+        });
+        L.polygon(inflated, { className: 'atoll-outline-shape' }).addTo(layer);
+        topLat = Math.max(...inflated.map(([lat]) => lat));
+      }
+      L.marker([topLat + 0.015, cLon], {
+        icon: L.divIcon({ className: '', html: `<div class="atoll-outline-label">${code}</div>`, iconSize: [40, 16], iconAnchor: [20, 8] }),
+        interactive: false
+      }).addTo(layer);
+    });
+
+    pointsRef.current = points;
+    if (points.length && !fitDoneRef.current) {
+      const size = map.getSize();
+      if (size.x > 0 && size.y > 0) {
+        map.fitBounds(points, { padding: [20, 20] });
+        fitDoneRef.current = true;
+      }
+    }
+    map.invalidateSize();
+  }, [features, locationTotals, selectedIsland, maxAmount, onSelectIsland]);
 
   return (
     <div className="map-wrap">
-      <div className="map-zoom-controls">
-        <button onClick={zoom.zoomIn} aria-label="Zoom in">+</button>
-        <button onClick={zoom.zoomOut} aria-label="Zoom out">−</button>
-        <button onClick={zoom.reset} aria-label="Reset zoom" className="map-zoom-reset">Reset</button>
-      </div>
-      <svg
-        ref={zoom.svgRef}
-        viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
-        role="img"
-        aria-label="Green Fund spending map"
-        className={zoom.view.k > 1 ? 'zoomed' : ''}
-        onPointerDown={zoom.onPointerDown}
-        onPointerMove={zoom.onPointerMove}
-        onPointerUp={zoom.onPointerUp}
-        onPointerLeave={zoom.onPointerUp}
-      >
-        <defs>
-          <radialGradient id="moneyGradient" cx="35%" cy="35%" r="70%">
-            <stop offset="0%" stopColor="#f7ffe8" />
-            <stop offset="55%" stopColor="#8bd450" />
-            <stop offset="100%" stopColor="#2f7d32" />
-          </radialGradient>
-        </defs>
-        <rect className="map-ocean" x="0" y="0" width={MAP_WIDTH} height={MAP_HEIGHT} rx="28" />
-        <g transform={`translate(${zoom.view.x} ${zoom.view.y}) scale(${zoom.view.k})`}>
-          <g className="atoll-outlines">
-            {atollOutlines.map((outline) => (
-              <g key={`atoll-${outline.code}`}>
-                {outline.path ? (
-                  <path className="atoll-outline-shape" d={outline.path} />
-                ) : (
-                  <circle className="atoll-outline-shape" cx={outline.cx} cy={outline.cy} r={outline.circleR} />
-                )}
-                <text className="atoll-outline-label" x={outline.labelX} y={outline.labelY}>{outline.code}</text>
-              </g>
-            ))}
-          </g>
-          <g>
-            {baseItems.map((item) => item.path ? (
-              <path key={`base-${item.index}`} className="island-shape" d={item.path} />
-            ) : (
-              <circle key={`base-${item.index}`} className="island-dot" cx={item.x} cy={item.y} r="2" />
-            ))}
-          </g>
-          <g>
-            {activeItems.map((item) => item.path ? (
-              <path
-                key={`active-shape-${item.index}`}
-                className={item.selected ? 'island-shape active selected' : 'island-shape active'}
-                d={item.path}
-                onClick={() => selectIsland(item.key)}
-              />
-            ) : null)}
-          </g>
-          <g>
-            {activeItems.map((item) => (
-              <g key={`bubble-${item.index}`} className="bubble-group" onClick={() => selectIsland(item.key)}>
-                <circle
-                  className={item.selected ? 'money-bubble selected' : 'money-bubble'}
-                  cx={item.x}
-                  cy={item.y}
-                  r={item.radius}
-                />
-                <text x={item.x} y={item.y + 4} textAnchor="middle" className="bubble-emoji">
-                  {item.total.amount > 100_000_000 ? '💰' : item.total.amount > 20_000_000 ? '💵' : '💲'}
-                </text>
-                <title>{item.key}: {formatMoney(item.total.amount, false)}</title>
-              </g>
-            ))}
-          </g>
-        </g>
-      </svg>
+      <div ref={containerRef} className="leaflet-map" role="img" aria-label="Green Fund spending map" />
       <div className="map-legend">
         <strong>Top island spends</strong>
         {topSpenders.map((row, index) => (

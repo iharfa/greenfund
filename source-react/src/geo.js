@@ -98,60 +98,7 @@ export function collectCoordinates(geometry) {
   return [];
 }
 
-export function boundsForFeatures(features) {
-  const coords = features.flatMap((feature) => collectCoordinates(feature.geometry));
-  const valid = coords.filter((coord) => Number.isFinite(coord[0]) && Number.isFinite(coord[1]));
-  if (!valid.length) return [72.4, -1, 74.2, 7.2];
-  const xs = valid.map((coord) => coord[0]);
-  const ys = valid.map((coord) => coord[1]);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const padX = Math.max(0.2, (maxX - minX) * 0.08);
-  const padY = Math.max(0.2, (maxY - minY) * 0.08);
-  return [minX - padX, minY - padY, maxX + padX, maxY + padY];
-}
-
-export function createProjector(bounds, width, height, padding = 28) {
-  const [minX, minY, maxX, maxY] = bounds;
-  const spanX = maxX - minX || 1;
-  const spanY = maxY - minY || 1;
-  const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
-  const offsetX = (width - spanX * scale) / 2;
-  const offsetY = (height - spanY * scale) / 2;
-
-  return function project(coord) {
-    const x = offsetX + (coord[0] - minX) * scale;
-    const y = height - (offsetY + (coord[1] - minY) * scale);
-    return [x, y];
-  };
-}
-
-function pathForRing(ring, project) {
-  return ring
-    .map((coord, index) => {
-      const [x, y] = project(coord);
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(' ') + ' Z';
-}
-
-export function featurePath(feature, project) {
-  const geometry = feature.geometry;
-  if (!geometry) return '';
-  if (geometry.type === 'Polygon') {
-    return geometry.coordinates.map((ring) => pathForRing(ring, project)).join(' ');
-  }
-  if (geometry.type === 'MultiPolygon') {
-    return geometry.coordinates
-      .flatMap((polygon) => polygon.map((ring) => pathForRing(ring, project)))
-      .join(' ');
-  }
-  return '';
-}
-
-// Monotone chain convex hull over already-projected [x,y] screen points.
+// Monotone chain convex hull over 2D points (axis-agnostic - works for screen pixels or lat/lng).
 export function convexHull(points) {
   const pts = [...new Set(points.map((p) => p.join(',')))].map((s) => s.split(',').map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   if (pts.length <= 2) return pts;

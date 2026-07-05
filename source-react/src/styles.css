@@ -166,31 +166,19 @@ p { color: var(--ink-soft); line-height: 1.6; }
 
 /* ===== Map ===== */
 .map-wrap { position: relative; }
-.map-wrap svg { width: 100%; height: auto; display: block; border-radius: 18px; touch-action: none; cursor: grab; }
-.map-wrap svg.zoomed { cursor: grab; }
-.map-wrap svg:active { cursor: grabbing; }
-.map-zoom-controls { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
-.map-zoom-controls button {
-  width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface);
-  color: var(--ink); font-size: 16px; font-weight: 600; line-height: 1; box-shadow: 0 1px 3px rgba(10,59,52,.12);
-}
-.map-zoom-controls button:hover { border-color: var(--brand); color: var(--brand); }
-.map-zoom-controls .map-zoom-reset { width: auto; padding: 0 10px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
-.map-ocean { fill: #E9F0EC; }
-.atoll-outline-shape { fill: rgba(127,184,172,.06); stroke: #7FB8AC; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.leaflet-map { width: 100%; aspect-ratio: 3 / 4; border-radius: 18px; background: #E9F0EC; }
+.atoll-outline-shape { fill: rgba(127,184,172,.08); stroke: #7FB8AC; stroke-width: 1.5; stroke-dasharray: 4 4; }
 .atoll-outline-label {
-  font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .06em;
-  fill: #0A3B34; text-anchor: middle; dominant-baseline: middle; pointer-events: none;
-  paint-order: stroke; stroke: #F1F4F1; stroke-width: 3px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-align: center;
+  color: #0A3B34; text-shadow: 0 0 3px #F1F4F1, 0 0 3px #F1F4F1, 0 0 3px #F1F4F1;
 }
-.island-shape { fill: #DCE8E1; stroke: #C7D6CD; stroke-width: .5; }
-.island-shape.active { fill: #BFDACB; cursor: pointer; }
-.island-shape.active.selected { fill: var(--brand-mint); stroke: var(--brand-deep); stroke-width: 1.5; }
-.island-dot { fill: #C7D6CD; }
-.money-bubble { fill: var(--brand); opacity: .85; stroke: rgba(255,255,255,.85); stroke-width: 1.2; transition: opacity .2s; }
-.money-bubble.selected { fill: var(--brand-deep); stroke: #fff; stroke-width: 2; }
-.bubble-group { cursor: pointer; }
-.bubble-emoji { font-size: 12px; pointer-events: none; }
+.island-dot { fill: #C7D6CD; stroke: none; }
+.money-bubble {
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--brand); opacity: .88; border: 1.5px solid rgba(255,255,255,.85);
+  box-shadow: 0 1px 4px rgba(10,59,52,.35); cursor: pointer; transition: opacity .15s;
+}
+.money-bubble.selected { background: var(--brand-deep); border: 2px solid #fff; opacity: 1; }
 .map-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
 .map-legend strong { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
 .map-legend button { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: center; background: none; border: none; padding: 6px 4px; border-radius: 8px; text-align: left; }
