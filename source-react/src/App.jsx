@@ -1231,6 +1231,7 @@ function CollectionChart({ detail }) {
   const instanceRef = useRef(null);
   const [mode, setMode] = useState('trend');
   const [currency, setCurrency] = useState('MVR');
+  const [groupBy, setGroupBy] = useState('atoll');
   const [types, setTypes] = useState(() => new Set(CHART_TYPES));
   const [atolls, setAtolls] = useState(null);
 
@@ -1282,18 +1283,29 @@ function CollectionChart({ detail }) {
   );
 
   const option = useMemo(() => {
-    const activeTypes = (r) => types.has(r.establishment_type);
     const codes = atollList.filter((a) => selectedAtolls.has(a.code));
 
+    // Each "group" becomes one line: either one per selected atoll (types summed),
+    // or one per selected establishment type (atolls summed).
+    const groups = groupBy === 'type'
+      ? CHART_TYPES.filter((t) => types.has(t)).map((t) => ({
+          name: t,
+          color: TYPE_COLORS[t],
+          match: (r) => selectedAtolls.has(r.atoll_code) && r.establishment_type === t
+        }))
+      : codes.map((a, i) => ({
+          name: a.label,
+          color: SERIES_PALETTE[i % SERIES_PALETTE.length],
+          match: (r) => r.atoll_code === a.code && types.has(r.establishment_type)
+        }));
+
     if (mode === 'season') {
-      const series = codes.map((a, i) => {
+      const series = groups.map((g) => {
         const sums = Array(12).fill(0);
         const counts = Array(12).fill(0);
-        const seen = Array.from({ length: 12 }, () => new Set());
-        // accumulate per (calendar month, year) then average across years
         const byMonthYear = new Map();
         detail.forEach((r) => {
-          if (r.atoll_code !== a.code || !activeTypes(r)) return;
+          if (!g.match(r)) return;
           if (!completeYears.has(r.month.slice(0, 4))) return; // complete years only for fair seasonality
           const mIdx = Number(r.month.slice(5, 7)) - 1;
           const key = mIdx + ':' + r.month.slice(0, 4);
@@ -1303,17 +1315,16 @@ function CollectionChart({ detail }) {
           const mIdx = Number(key.split(':')[0]);
           sums[mIdx] += val;
           counts[mIdx] += 1;
-          seen[mIdx].add(key.split(':')[1]);
         });
         const avg = sums.map((s, idx) => (counts[idx] ? s / counts[idx] : 0));
         const mean = avg.reduce((x, y) => x + y, 0) / 12;
         return {
-          name: a.label,
+          name: g.name,
           type: 'line',
           smooth: true,
           symbolSize: 6,
           data: avg.map((v) => Math.round(v)),
-          color: SERIES_PALETTE[i % SERIES_PALETTE.length],
+          color: g.color,
           markPoint: { data: [{ type: 'max', name: 'High season' }, { type: 'min', name: 'Low season' }], symbolSize: 42 },
           markLine: { silent: true, symbol: 'none', lineStyle: { type: 'dashed', opacity: 0.5 }, data: [{ yAxis: Math.round(mean), name: 'avg' }] }
         };
@@ -1329,21 +1340,21 @@ function CollectionChart({ detail }) {
     }
 
     // trend mode
-    const monthTotals = new Map();
-    detail.forEach((r) => {
-      if (!selectedAtolls.has(r.atoll_code) || !activeTypes(r)) return;
-      let m = monthTotals.get(r.atoll_code);
-      if (!m) { m = new Map(); monthTotals.set(r.atoll_code, m); }
-      m.set(r.month, (m.get(r.month) || 0) + r[amountKey]);
+    const series = groups.map((g) => {
+      const byMonth = new Map();
+      detail.forEach((r) => {
+        if (!g.match(r)) return;
+        byMonth.set(r.month, (byMonth.get(r.month) || 0) + r[amountKey]);
+      });
+      return {
+        name: g.name,
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: months.map((mo) => Math.round(byMonth.get(mo) || 0)),
+        color: g.color
+      };
     });
-    const series = codes.map((a, i) => ({
-      name: a.label,
-      type: 'line',
-      smooth: true,
-      showSymbol: false,
-      data: months.map((mo) => Math.round((monthTotals.get(a.code) || new Map()).get(mo) || 0)),
-      color: SERIES_PALETTE[i % SERIES_PALETTE.length]
-    }));
     return {
       tooltip: { trigger: 'axis', valueFormatter: (v) => fmtAxis(v, currency) },
       legend: { top: 0, textStyle: { color: '#1f3a24' } },
@@ -1356,7 +1367,7 @@ function CollectionChart({ detail }) {
       ],
       series
     };
-  }, [detail, mode, currency, types, selectedAtolls, atollList, months, amountKey, completeYears]);
+  }, [detail, mode, currency, groupBy, types, selectedAtolls, atollList, months, amountKey, completeYears]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -1387,8 +1398,8 @@ function CollectionChart({ detail }) {
           <div className="section-title">Green tax collection — interactive trends &amp; seasonality</div>
           <p>
             {mode === 'trend'
-              ? 'Monthly collection per atoll. Drag the slider to change the date range; click legend items to toggle atolls.'
-              : 'Average collection by calendar month (complete years only) — peaks mark each atoll’s high season, troughs the low season.'}
+              ? `Monthly collection, one line per ${groupBy === 'type' ? 'establishment type (atolls summed)' : 'atoll (types summed)'}. Drag the slider to change the date range; click legend items to toggle lines.`
+              : `Average collection by calendar month (complete years only), one line per ${groupBy === 'type' ? 'establishment type' : 'atoll'} — peaks mark the high season, troughs the low season.`}
           </p>
         </div>
         <div className="mode-row">
@@ -1399,7 +1410,14 @@ function CollectionChart({ detail }) {
 
       <div className="chart-controls">
         <div className="control-block">
-          <span className="control-label">Establishments</span>
+          <span className="control-label">Break down by</span>
+          <div className="mode-row">
+            <button className={groupBy === 'atoll' ? 'pill active' : 'pill'} onClick={() => setGroupBy('atoll')}>Atoll</button>
+            <button className={groupBy === 'type' ? 'pill active' : 'pill'} onClick={() => setGroupBy('type')}>Establishment</button>
+          </div>
+        </div>
+        <div className="control-block">
+          <span className="control-label">Establishments {groupBy === 'type' ? '(lines shown)' : '(included in totals)'}</span>
           <div className="chip-row">
             {CHART_TYPES.map((t) => (
               <button key={t} className={types.has(t) ? 'chip on' : 'chip'} onClick={() => toggleType(t)}>
