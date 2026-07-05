@@ -250,7 +250,7 @@ function App() {
   }
 
   if (!data) {
-    return <main className="loading">Loading Green Fund Money Map 💸</main>;
+    return <main className="loading">Loading Green Fund Money Map…</main>;
   }
 
   const latestCollectionMonth = data.collectionDetail.reduce((max, row) => (row.month > max ? row.month : max), '');
@@ -271,9 +271,9 @@ function App() {
   ];
 
   const VIEW_META = {
-    spending: { kicker: 'The money map', title: 'Spending across the atolls', desc: 'Where Green Fund disbursements land, by island, category, project and month.' },
-    collection: { kicker: 'Collection & redistribution', title: 'Who funds whom', desc: 'Green tax raised versus spending received per atoll — the redistribution across the country.' },
-    browser: { kicker: 'The full dataset', title: 'Browse green tax collection', desc: 'MIRA monthly atoll returns, 2019–2026, by establishment type — chart, filter and export.' }
+    spending: { kicker: 'The money map', title: 'Spending across the atolls', desc: 'Green Fund disbursements by island, category, project and month.' },
+    collection: { kicker: 'Collection & redistribution', title: 'Collection versus spending', desc: 'Green tax raised against spending received, for each atoll.' },
+    browser: { kicker: 'The full dataset', title: 'Browse green tax collection', desc: 'MIRA monthly atoll returns from 2019 to 2026, by establishment type. Chart, filter and export the figures.' }
   };
   const meta = VIEW_META[view];
 
@@ -388,10 +388,10 @@ function App() {
           </div>
 
           <div className="panel-section compact-note">
-            <strong>Island join logic</strong>
+            <strong>About the map</strong>
             <p>
-              Replace <code>public/data/islands.geojson</code> with your islands repo GeoJSON.
-              The app joins on <code>join_key</code> or <code>atoll.island</code> fields.
+              Bubbles are sized by total Green Fund spending on each island. Select one to see its projects and
+              category breakdown.
             </p>
           </div>
         </aside>
@@ -480,9 +480,9 @@ function Hero({ metrics }) {
         <div className="hero-kicker">Maldives Green Fund · Public transparency</div>
         <h1>Where the Green&nbsp;Tax goes.</h1>
         <p className="hero-lead">
-          Every visitor to the Maldives pays a Green Tax. This dashboard traces how that money moves — from
-          collection across the atolls to the projects it funds — using official MIRA collection returns and
-          published Green Fund spending.
+          Every visitor to the Maldives pays a Green Tax for each night of their stay. This dashboard shows how
+          much is collected in each atoll and where the Green Fund spends it, drawn from MIRA collection returns
+          and published Green Fund spending.
         </p>
         <div className="hero-metrics">
           {metrics.map((m) => (
@@ -507,9 +507,9 @@ function SiteFooter({ latestCollectionYear, latestCollectionLabel }) {
             <div className="kicker">About</div>
             <h3>The Green Fund, in brief</h3>
             <p>
-              A Green Tax is charged per guest, per night at tourist facilities. Revenue flows into the Green Fund,
-              which finances environmental infrastructure — waste management, water and sewerage, coastal protection,
-              harbours and renewable energy — on islands across the country.
+              A Green Tax is charged per guest, per night at tourist facilities. The revenue goes into the Green
+              Fund, which pays for environmental infrastructure on islands across the country, including waste
+              management, water and sewerage, coastal protection, harbours and renewable energy.
             </p>
           </div>
           <div className="footer-cols">
@@ -704,8 +704,8 @@ function DataQuality({ totals, unmappedProjects }) {
         <span><b>{totals.multiLocation}</b><small>multi-island projects</small></span>
       </div>
       <p>
-        Unmapped rows have no valid atoll.island pattern. Multi-location rows are split equally for the map.
-        Review these when exact island package amounts matter.
+        Unmapped projects could not be tied to a specific island. Projects covering several islands are split
+        evenly across them on the map. Check these figures when exact per-island amounts matter.
       </p>
       <div className="unmapped-list">
         {unmappedProjects.slice(0, 8).map((row) => (
@@ -894,7 +894,7 @@ function CollectionView({ atollBalance, collectionMonthly, flowMonthly, monthlyL
         </div>
         {selected && atollCategoryMix.length > 0 && (
           <div className="mini-list atoll-mix">
-            <strong>{selected.atoll_label} — green fund spending by category</strong>
+            <strong>{selected.atoll_label}: green fund spending by category</strong>
             {atollCategoryMix.map((row) => (
               <div className="bar-row" key={row.category}>
                 <span>{categoryEmoji(row.category)} {row.category}</span>
@@ -1146,7 +1146,7 @@ function DataBrowser({ detail }) {
     <section className="card table-card">
       <div className="card-header">
         <div>
-          <div className="section-title">Green tax collection — browsable dataset</div>
+          <div className="section-title">Green tax collection: full dataset</div>
           <p>Source: MIRA monthly atoll returns, 2019–2026. {detail.length.toLocaleString()} records · resort / hotel / guesthouse / vessel by atoll.</p>
         </div>
         <button className="ghost-button" onClick={downloadCsv}>⬇ Export filtered CSV</button>
@@ -1452,13 +1452,13 @@ function CollectionChart({ detail }) {
     <section className="card chart-card">
       <div className="card-header">
         <div>
-          <div className="section-title">Green tax collection — interactive trends &amp; seasonality</div>
+          <div className="section-title">Collection trends and seasonality</div>
           <p>
             {mode === 'trend'
               ? `Monthly collection, one line per ${groupBy === 'type' ? 'establishment type (atolls summed)' : 'atoll (types summed)'}. Drag the slider to change the date range; click legend items to toggle lines.`
               : seasonSeries === 'year'
-              ? 'Collection by calendar month, one line per year — compare how the seasonal shape differs between years for the selected atolls and establishments.'
-              : `Average collection by calendar month (complete years only), one line per ${groupBy === 'type' ? 'establishment type' : 'atoll'} — peaks mark the high season, troughs the low season.`}
+              ? 'Collection by calendar month, with one line per year. Use it to compare the seasonal pattern between years for the selected atolls and establishments.'
+              : `Average collection by calendar month across complete years, with one line per ${groupBy === 'type' ? 'establishment type' : 'atoll'}. The highest month is the peak season and the lowest is the off season.`}
           </p>
         </div>
         <div className="mode-row">
