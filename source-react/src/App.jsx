@@ -224,6 +224,10 @@ function App() {
     return <main className="loading">Loading Green Fund Money Map 💸</main>;
   }
 
+  const latestCollectionMonth = data.collectionDetail.reduce((max, row) => (row.month > max ? row.month : max), '');
+  const latestCollectionYear = latestCollectionMonth.slice(0, 4);
+  const latestCollectionLabel = monthLabel(latestCollectionMonth);
+
   return (
     <main className="app-shell">
       <section className="hero-card">
@@ -398,6 +402,11 @@ function App() {
           Green tax collection figures are reported by the Maldives Inland Revenue Authority (MIRA) at the
           atoll/city level only. MIRA is unable to provide data at a resolution that would allow individual
           taxpayers to be identified, so collection cannot be disaggregated below the atoll.
+        </p>
+        <p>
+          <strong className="warn-flag">⚠ {latestCollectionYear} is a partial year.</strong> Green tax collection data
+          runs through {latestCollectionLabel}, so any total that spans all years includes an incomplete final year and
+          will understate it. Year-on-year comparisons should use complete years only.
         </p>
         <p>
           Collection is keyed by atoll/city while green fund expenditure is keyed by island, then rolled up to
@@ -929,6 +938,15 @@ function DataBrowser({ detail }) {
   const PAGE_SIZE = 100;
 
   const years = useMemo(() => Array.from(new Set(detail.map((r) => r.year))).sort(), [detail]);
+  const yearMaxMonth = useMemo(() => {
+    const max = {};
+    detail.forEach((r) => {
+      const mo = r.month.slice(5, 7);
+      if (!max[r.year] || mo > max[r.year]) max[r.year] = mo;
+    });
+    return max;
+  }, [detail]);
+  const isPartial = (y) => yearMaxMonth[y] && yearMaxMonth[y] < '12';
   const atolls = useMemo(
     () => Array.from(new Map(detail.map((r) => [r.atoll_code, r.atoll_label])).entries()).sort((a, b) => a[1].localeCompare(b[1])),
     [detail]
@@ -999,7 +1017,7 @@ function DataBrowser({ detail }) {
         <label>Year
           <select value={year} onChange={(e) => { setYear(e.target.value); setPage(0); }}>
             <option value="all">All years</option>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            {years.map((y) => <option key={y} value={y}>{isPartial(y) ? `${y} (partial)` : y}</option>)}
           </select>
         </label>
         <label>Atoll
@@ -1026,6 +1044,13 @@ function DataBrowser({ detail }) {
         <span><b>{filtered.length.toLocaleString()}</b> rows</span>
         <span>Total: <b>{fmt(total)}</b></span>
         <span>Page {page + 1} of {pageCount}</span>
+        {(year === 'all' || isPartial(year)) && (
+          <span className="partial-badge">
+            ⚠ {year === 'all'
+              ? `includes partial year ${Object.keys(yearMaxMonth).filter(isPartial).join(', ')}`
+              : `${year} is a partial year (through ${monthLabel(`${year}-${yearMaxMonth[year]}-01`)})`}
+          </span>
+        )}
       </div>
 
       <div className="table-wrap">
