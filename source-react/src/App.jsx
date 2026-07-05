@@ -40,6 +40,13 @@ const MAP_WIDTH = 620;
 const MAP_HEIGHT = 820;
 const EMOJIS = ['💲', '💵', '💰', '💸', '🤑'];
 
+// Geographic order, north to south, matching how islands/atolls are listed top-down.
+const ATOLL_ORDER = ['HA', 'HDh', 'Sh', 'N', 'R', 'B', 'Lh', 'K', 'Male', 'AA', 'ADh', 'V', 'M', 'F', 'Dh', 'Th', 'L', 'GA', 'GDh', 'Gn', 'S'];
+const atollRank = (code) => {
+  const i = ATOLL_ORDER.indexOf(code);
+  return i === -1 ? ATOLL_ORDER.length : i;
+};
+
 function inSelectedTime(month, selectedMonth, mode) {
   if (!month || !selectedMonth) return false;
   if (mode === 'monthly') return month === selectedMonth;
@@ -802,16 +809,16 @@ function CollectionView({ atollBalance, collectionMonthly, flowMonthly, monthlyL
               </tr>
             </thead>
             <tbody>
-              {atollBalance.map((row) => (
+              {[...atollBalance].sort((a, b) => atollRank(a.atoll_code) - atollRank(b.atoll_code)).map((row) => (
                 <tr
                   key={row.atoll_code}
                   className={selectedAtoll === row.atoll_code ? 'row-selected' : ''}
                   onClick={() => setSelectedAtoll(row.atoll_code === selectedAtoll ? '' : row.atoll_code)}
                 >
                   <td><b>{row.atoll_label}</b></td>
-                  <td>{formatMoney(row.collection_mvr, false)}</td>
-                  <td>{formatMoney(row.expenditure_mvr, false)}</td>
-                  <td className={row.net_flow_mvr >= 0 ? 'net-pos' : 'net-neg'}>{formatMoney(row.net_flow_mvr, false)}</td>
+                  <td>{formatMoney(row.collection_mvr)}</td>
+                  <td>{formatMoney(row.expenditure_mvr)}</td>
+                  <td className={row.net_flow_mvr >= 0 ? 'net-pos' : 'net-neg'}>{formatMoney(row.net_flow_mvr)}</td>
                   <td>{row.collection_share_pct}%</td>
                   <td>{row.expenditure_share_pct}%</td>
                 </tr>
@@ -825,7 +832,7 @@ function CollectionView({ atollBalance, collectionMonthly, flowMonthly, monthlyL
 }
 
 function RedistributionChart({ rows, selectedAtoll, onSelect }) {
-  const sorted = [...rows].sort((a, b) => b.net_flow_mvr - a.net_flow_mvr);
+  const sorted = [...rows].sort((a, b) => atollRank(a.atoll_code) - atollRank(b.atoll_code));
   const max = Math.max(...sorted.map((r) => Math.abs(r.net_flow_mvr)), 1);
   return (
     <section className="card chart-card">
@@ -856,7 +863,7 @@ function RedistributionChart({ rows, selectedAtoll, onSelect }) {
 }
 
 function ShareCompareChart({ rows, selectedAtoll, onSelect }) {
-  const sorted = [...rows].sort((a, b) => b.collection_share_pct - a.collection_share_pct);
+  const sorted = [...rows].sort((a, b) => atollRank(a.atoll_code) - atollRank(b.atoll_code));
   const max = Math.max(...sorted.flatMap((r) => [r.collection_share_pct, r.expenditure_share_pct]), 1);
   return (
     <section className="card chart-card">
@@ -887,7 +894,7 @@ function CompositionChart({ composition, balance, selectedAtoll, onSelect }) {
   const rows = balance
     .map((b) => composition.get(b.atoll_code))
     .filter((r) => r && r.total > 0)
-    .slice(0, 12);
+    .sort((a, b) => atollRank(a.atoll_code) - atollRank(b.atoll_code));
   return (
     <section className="card chart-card">
       <div className="section-title">What drives each atoll's tax base</div>
@@ -970,7 +977,7 @@ function DataBrowser({ detail }) {
   }, [detail]);
   const isPartial = (y) => yearMaxMonth[y] && yearMaxMonth[y] < '12';
   const atolls = useMemo(
-    () => Array.from(new Map(detail.map((r) => [r.atoll_code, r.atoll_label])).entries()).sort((a, b) => a[1].localeCompare(b[1])),
+    () => Array.from(new Map(detail.map((r) => [r.atoll_code, r.atoll_label])).entries()).sort((a, b) => atollRank(a[0]) - atollRank(b[0])),
     [detail]
   );
   const types = useMemo(() => Array.from(new Set(detail.map((r) => r.establishment_type))), [detail]);
@@ -1124,19 +1131,31 @@ function CollectionChart({ detail }) {
 
   const amountKey = currency === 'USD' ? 'usd_amount' : 'mvr_amount';
 
-  const atollList = useMemo(() => {
+  const totalsByAtoll = useMemo(() => {
     const totals = new Map();
     const labels = new Map();
     detail.forEach((r) => {
       totals.set(r.atoll_code, (totals.get(r.atoll_code) || 0) + r.mvr_amount);
       labels.set(r.atoll_code, r.atoll_label);
     });
-    return Array.from(totals.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([code]) => ({ code, label: labels.get(code) }));
+    return { totals, labels };
   }, [detail]);
 
-  const selectedAtolls = atolls ?? new Set(atollList.slice(0, 5).map((a) => a.code));
+  // Chips listed in geographic order (north to south).
+  const atollList = useMemo(
+    () => Array.from(totalsByAtoll.totals.keys())
+      .sort((a, b) => atollRank(a) - atollRank(b))
+      .map((code) => ({ code, label: totalsByAtoll.labels.get(code) })),
+    [totalsByAtoll]
+  );
+
+  // Highest-collecting atolls, used for the "Top 5" default and shortcut.
+  const topFiveCodes = useMemo(
+    () => Array.from(totalsByAtoll.totals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([code]) => code),
+    [totalsByAtoll]
+  );
+
+  const selectedAtolls = atolls ?? new Set(topFiveCodes);
 
   const months = useMemo(
     () => Array.from(new Set(detail.map((r) => r.month))).sort(),
@@ -1297,7 +1316,7 @@ function CollectionChart({ detail }) {
         <span className="control-label">Atolls ({selectedAtolls.size} shown)
           <button className="link-button" onClick={() => setAtolls(new Set(atollList.map((a) => a.code)))}>All</button>
           <button className="link-button" onClick={() => setAtolls(new Set())}>None</button>
-          <button className="link-button" onClick={() => setAtolls(new Set(atollList.slice(0, 5).map((a) => a.code)))}>Top 5</button>
+          <button className="link-button" onClick={() => setAtolls(new Set(topFiveCodes))}>Top 5</button>
         </span>
         <div className="chip-row atoll-chips">
           {atollList.map((a) => (
