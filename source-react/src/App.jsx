@@ -535,7 +535,7 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
           <button key={row.join_key} onClick={() => onSelectIsland(row.join_key)}>
             <span>{index + 1}</span>
             <b>{row.join_key}</b>
-            <em>{formatMoney(row.amount)}</em>
+            <em>{formatMoney(row.amount, false)}</em>
           </button>
         ))}
       </div>
