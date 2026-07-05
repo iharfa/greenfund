@@ -1366,8 +1366,24 @@ function CollectionChart({ detail }) {
           symbolSize: 6,
           data: avg.map((v) => Math.round(v)),
           color: g.color,
-          markPoint: { data: [{ type: 'max', name: 'High season' }, { type: 'min', name: 'Low season' }], symbolSize: 42 },
-          markLine: { silent: true, symbol: 'none', lineStyle: { type: 'dashed', opacity: 0.5 }, data: [{ yAxis: Math.round(mean), name: 'avg' }] }
+          markPoint: {
+            symbol: 'circle',
+            symbolSize: 9,
+            itemStyle: { color: g.color, borderColor: '#fff', borderWidth: 1.5 },
+            label: {
+              formatter: (p) => shortMoney(p.value),
+              fontSize: 10.5,
+              fontWeight: 600,
+              color: g.color,
+              textBorderColor: '#fff',
+              textBorderWidth: 2.5
+            },
+            data: [
+              { type: 'max', label: { position: 'top' } },
+              { type: 'min', label: { position: 'bottom' } }
+            ]
+          },
+          markLine: { silent: true, symbol: 'none', label: { show: false }, lineStyle: { type: 'dashed', opacity: 0.3 }, data: [{ yAxis: Math.round(mean) }] }
         };
       });
       return {
@@ -1516,6 +1532,15 @@ function fmtAxis(v, currency) {
   if (abs >= 1e6) return `${sym}${(v / 1e6).toFixed(1)}M`;
   if (abs >= 1e3) return `${sym}${(v / 1e3).toFixed(0)}K`;
   return `${sym}${Math.round(v)}`;
+}
+
+// compact label for in-chart markers (no currency prefix to keep pins small)
+function shortMoney(v) {
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${Math.round(v / 1e3)}K`;
+  return String(Math.round(v));
 }
 
 export default App;
