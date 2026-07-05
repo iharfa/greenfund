@@ -177,6 +177,12 @@ p { color: var(--ink-soft); line-height: 1.6; }
 .map-zoom-controls button:hover { border-color: var(--brand); color: var(--brand); }
 .map-zoom-controls .map-zoom-reset { width: auto; padding: 0 10px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
 .map-ocean { fill: #E9F0EC; }
+.atoll-outline-shape { fill: rgba(127,184,172,.06); stroke: #7FB8AC; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.atoll-outline-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .06em;
+  fill: #0A3B34; text-anchor: middle; dominant-baseline: middle; pointer-events: none;
+  paint-order: stroke; stroke: #F1F4F1; stroke-width: 3px;
+}
 .island-shape { fill: #DCE8E1; stroke: #C7D6CD; stroke-width: .5; }
 .island-shape.active { fill: #BFDACB; cursor: pointer; }
 .island-shape.active.selected { fill: var(--brand-mint); stroke: var(--brand-deep); stroke-width: 1.5; }

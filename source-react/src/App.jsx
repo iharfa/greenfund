@@ -47,6 +47,7 @@ function readLocalOverrides() {
 }
 import {
   boundsForFeatures,
+  convexHull,
   createProjector,
   featureCentroid,
   featureJoinKey,
@@ -725,6 +726,39 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
   const baseItems = featureItems.filter((item) => !item.active);
   const topSpenders = Array.from(locationTotals.values()).sort((a, b) => b.amount - a.amount).slice(0, 5);
 
+  // Outline each atoll from the islands we actually have points for. The source GeoJSON only
+  // has island centroids, not real atoll boundaries, so this is a padded hull around those
+  // points - an indicative outline, not a surveyed administrative boundary.
+  const OUTLINE_PAD = 14;
+  const atollGroups = new Map();
+  featureItems.forEach((item) => {
+    const atollCode = item.key && item.key.split('.')[0];
+    if (!atollCode) return;
+    if (!atollGroups.has(atollCode)) atollGroups.set(atollCode, []);
+    atollGroups.get(atollCode).push([item.x, item.y]);
+  });
+  const atollOutlines = Array.from(atollGroups.entries()).map(([code, points]) => {
+    const cx = points.reduce((s, p) => s + p[0], 0) / points.length;
+    const cy = points.reduce((s, p) => s + p[1], 0) / points.length;
+    if (points.length < 3) {
+      const spread = points.reduce((max, p) => Math.max(max, Math.hypot(p[0] - cx, p[1] - cy)), 0);
+      const r = spread + OUTLINE_PAD;
+      return { code, cx, cy, circleR: r, labelX: cx, labelY: cy - r - 6 };
+    }
+    const hull = convexHull(points);
+    const inflated = hull.map(([x, y]) => {
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const scale = (dist + OUTLINE_PAD) / dist;
+      return [cx + dx * scale, cy + dy * scale];
+    });
+    const path = inflated.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ') + ' Z';
+    // Label sits just above the outline's top edge, clear of the bubbles inside it.
+    const topY = Math.min(...inflated.map(([, y]) => y));
+    return { code, cx, cy, path, labelX: cx, labelY: topY - 6 };
+  });
+
   return (
     <div className="map-wrap">
       <div className="map-zoom-controls">
@@ -752,6 +786,18 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
         </defs>
         <rect className="map-ocean" x="0" y="0" width={MAP_WIDTH} height={MAP_HEIGHT} rx="28" />
         <g transform={`translate(${zoom.view.x} ${zoom.view.y}) scale(${zoom.view.k})`}>
+          <g className="atoll-outlines">
+            {atollOutlines.map((outline) => (
+              <g key={`atoll-${outline.code}`}>
+                {outline.path ? (
+                  <path className="atoll-outline-shape" d={outline.path} />
+                ) : (
+                  <circle className="atoll-outline-shape" cx={outline.cx} cy={outline.cy} r={outline.circleR} />
+                )}
+                <text className="atoll-outline-label" x={outline.labelX} y={outline.labelY}>{outline.code}</text>
+              </g>
+            ))}
+          </g>
           <g>
             {baseItems.map((item) => item.path ? (
               <path key={`base-${item.index}`} className="island-shape" d={item.path} />

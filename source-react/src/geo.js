@@ -151,6 +151,27 @@ export function featurePath(feature, project) {
   return '';
 }
 
+// Monotone chain convex hull over already-projected [x,y] screen points.
+export function convexHull(points) {
+  const pts = [...new Set(points.map((p) => p.join(',')))].map((s) => s.split(',').map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length <= 2) return pts;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i -= 1) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  upper.pop();
+  lower.pop();
+  return lower.concat(upper);
+}
+
 export function featureCentroid(feature) {
   const coords = collectCoordinates(feature.geometry).filter((coord) => Number.isFinite(coord[0]) && Number.isFinite(coord[1]));
   if (!coords.length) return [73.1, 3.2];
