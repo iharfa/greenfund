@@ -1228,6 +1228,7 @@ function DataBrowser({ detail }) {
 const CHART_TYPES = ['Resorts', 'Hotels', 'Guesthouse', 'Vessels'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SERIES_PALETTE = ['#2f7d32', '#f2b705', '#3aa0ff', '#c0392b', '#8e44ad', '#16a085', '#e67e22', '#2c3e50'];
+const YEAR_PALETTE = ['#0E5C51', '#2f7d32', '#7FB8AC', '#f2b705', '#e67e22', '#c0392b', '#8e44ad', '#3aa0ff'];
 
 function CollectionChart({ detail }) {
   const chartRef = useRef(null);
@@ -1235,6 +1236,7 @@ function CollectionChart({ detail }) {
   const [mode, setMode] = useState('trend');
   const [currency, setCurrency] = useState('MVR');
   const [groupBy, setGroupBy] = useState('atoll');
+  const [seasonSeries, setSeasonSeries] = useState('aggregate');
   const [types, setTypes] = useState(() => new Set(CHART_TYPES));
   const [atolls, setAtolls] = useState(null);
 
@@ -1270,6 +1272,10 @@ function CollectionChart({ detail }) {
     () => Array.from(new Set(detail.map((r) => r.month))).sort(),
     [detail]
   );
+  const allYears = useMemo(
+    () => Array.from(new Set(detail.map((r) => r.month.slice(0, 4)))).sort(),
+    [detail]
+  );
 
   const yearMaxMonth = useMemo(() => {
     const max = {};
@@ -1301,6 +1307,38 @@ function CollectionChart({ detail }) {
           color: SERIES_PALETTE[i % SERIES_PALETTE.length],
           match: (r) => r.atoll_code === a.code && types.has(r.establishment_type)
         }));
+
+    if (mode === 'season' && seasonSeries === 'year') {
+      // One line per year: monthly collection for that year, summing selected atolls + types.
+      const series = allYears.map((yr, i) => {
+        const monthly = Array(12).fill(0);
+        let hasData = Array(12).fill(false);
+        detail.forEach((r) => {
+          if (r.month.slice(0, 4) !== yr) return;
+          if (!selectedAtolls.has(r.atoll_code) || !types.has(r.establishment_type)) return;
+          const mIdx = Number(r.month.slice(5, 7)) - 1;
+          monthly[mIdx] += r[amountKey];
+          hasData[mIdx] = true;
+        });
+        return {
+          name: yr,
+          type: 'line',
+          smooth: true,
+          symbolSize: 5,
+          connectNulls: false,
+          data: monthly.map((v, idx) => (hasData[idx] ? Math.round(v) : null)),
+          color: YEAR_PALETTE[i % YEAR_PALETTE.length]
+        };
+      });
+      return {
+        tooltip: { trigger: 'axis', valueFormatter: (v) => (v == null ? '—' : fmtAxis(v, currency)) },
+        legend: { top: 0, textStyle: { color: '#1f3a24' } },
+        grid: { left: 64, right: 24, top: 40, bottom: 40 },
+        xAxis: { type: 'category', data: MONTH_NAMES, boundaryGap: false },
+        yAxis: { type: 'value', axisLabel: { formatter: (v) => fmtAxis(v, currency) } },
+        series
+      };
+    }
 
     if (mode === 'season') {
       const series = groups.map((g) => {
@@ -1370,7 +1408,7 @@ function CollectionChart({ detail }) {
       ],
       series
     };
-  }, [detail, mode, currency, groupBy, types, selectedAtolls, atollList, months, amountKey, completeYears]);
+  }, [detail, mode, currency, groupBy, seasonSeries, types, selectedAtolls, atollList, months, allYears, amountKey, completeYears]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -1402,6 +1440,8 @@ function CollectionChart({ detail }) {
           <p>
             {mode === 'trend'
               ? `Monthly collection, one line per ${groupBy === 'type' ? 'establishment type (atolls summed)' : 'atoll (types summed)'}. Drag the slider to change the date range; click legend items to toggle lines.`
+              : seasonSeries === 'year'
+              ? 'Collection by calendar month, one line per year — compare how the seasonal shape differs between years for the selected atolls and establishments.'
               : `Average collection by calendar month (complete years only), one line per ${groupBy === 'type' ? 'establishment type' : 'atoll'} — peaks mark the high season, troughs the low season.`}
           </p>
         </div>
@@ -1412,13 +1452,24 @@ function CollectionChart({ detail }) {
       </div>
 
       <div className="chart-controls">
-        <div className="control-block">
-          <span className="control-label">Break down by</span>
-          <div className="mode-row">
-            <button className={groupBy === 'atoll' ? 'pill active' : 'pill'} onClick={() => setGroupBy('atoll')}>Atoll</button>
-            <button className={groupBy === 'type' ? 'pill active' : 'pill'} onClick={() => setGroupBy('type')}>Establishment</button>
+        {mode === 'season' && (
+          <div className="control-block">
+            <span className="control-label">Seasonality series</span>
+            <div className="mode-row">
+              <button className={seasonSeries === 'aggregate' ? 'pill active' : 'pill'} onClick={() => setSeasonSeries('aggregate')}>Aggregate</button>
+              <button className={seasonSeries === 'year' ? 'pill active' : 'pill'} onClick={() => setSeasonSeries('year')}>By year</button>
+            </div>
           </div>
-        </div>
+        )}
+        {!(mode === 'season' && seasonSeries === 'year') && (
+          <div className="control-block">
+            <span className="control-label">Break down by</span>
+            <div className="mode-row">
+              <button className={groupBy === 'atoll' ? 'pill active' : 'pill'} onClick={() => setGroupBy('atoll')}>Atoll</button>
+              <button className={groupBy === 'type' ? 'pill active' : 'pill'} onClick={() => setGroupBy('type')}>Establishment</button>
+            </div>
+          </div>
+        )}
         <div className="control-block">
           <span className="control-label">Establishments {groupBy === 'type' ? '(lines shown)' : '(included in totals)'}</span>
           <div className="chip-row">
