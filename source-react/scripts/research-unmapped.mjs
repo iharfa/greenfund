@@ -10,7 +10,7 @@ import { parseCsv } from '../src/data.js';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const UNMAPPED_CSV = `${ROOT}public/data/green_fund_unmapped_projects.csv`;
 const OUTPUT_JSON = `${ROOT}public/data/green_fund_qa_research.json`;
-const MODEL = 'claude-haiku-4-5-20251001';
+const MODEL = 'claude-sonnet-5';
 const DELAY_MS = 1000;
 
 const apiKey = process.env.ANTHROPIC_API_KEY;

@@ -928,7 +928,7 @@ function DataQualityView({
           <div>
             <div className="section-title">Unmapped projects</div>
             <p>
-              Research is generated offline by <code>npm run research</code> (Haiku 4.5 with web search) and
+              Research is generated offline by <code>npm run research</code> (Sonnet 5 with web search) and
               committed as static data. Assign an atoll/island once a source confirms it, or mark it for an RTI request.
             </p>
           </div>

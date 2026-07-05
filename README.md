@@ -71,7 +71,7 @@ cd source-react
 ANTHROPIC_API_KEY=sk-... npm run research
 ```
 
-This calls Haiku 4.5 with web search for each unmapped project and writes `public/data/green_fund_qa_research.json`.
+This calls Sonnet 5 with web search for each unmapped project and writes `public/data/green_fund_qa_research.json`.
 Copy that file into `data/` alongside the CSVs before redeploying so everyone sees the research.
 
 Reviewers can assign an atoll/island or mark a project "Send RTI to verify" from the tab (password required -
