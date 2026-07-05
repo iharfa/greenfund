@@ -781,3 +781,14 @@ td small {
 .data-disclaimer strong { display: block; margin-bottom: 6px; color: #1f3a24; font-size: 13px; letter-spacing: .02em; text-transform: uppercase; }
 .data-disclaimer p { margin: 0 0 8px; }
 .data-disclaimer p:last-child { margin-bottom: 0; }
+
+/* ===== Data browser ===== */
+.browser-filters { display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0 12px; }
+.browser-filters label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: #4a5d4f; }
+.browser-filters select { padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(47,125,50,0.25); background: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; color: #1f3a24; min-width: 150px; }
+.browser-summary { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: #3a4d3f; margin-bottom: 8px; }
+.browser-summary b { color: #1f3a24; }
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { color: #2f7d32; }
+.browser-pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 12px; font-size: 13px; color: #4a5d4f; }
+.browser-pager button:disabled { opacity: .4; cursor: not-allowed; }

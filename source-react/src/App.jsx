@@ -249,7 +249,12 @@ function App() {
         <button className={view === 'collection' ? 'tab active' : 'tab'} onClick={() => setView('collection')}>
           🟢 Collection &amp; redistribution
         </button>
+        <button className={view === 'browser' ? 'tab active' : 'tab'} onClick={() => setView('browser')}>
+          🔎 Data browser
+        </button>
       </nav>
+
+      {view === 'browser' && <DataBrowser detail={data.collectionDetail} />}
 
       {view === 'collection' && (
         <CollectionView
@@ -911,6 +916,148 @@ function FlowTimeline({ flow }) {
 
 function normalizeAtoll(code) {
   return String(code || '').trim();
+}
+
+function DataBrowser({ detail }) {
+  const [year, setYear] = useState('all');
+  const [atoll, setAtoll] = useState('all');
+  const [type, setType] = useState('all');
+  const [currency, setCurrency] = useState('MVR');
+  const [sortKey, setSortKey] = useState('month');
+  const [sortDir, setSortDir] = useState('asc');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
+
+  const years = useMemo(() => Array.from(new Set(detail.map((r) => r.year))).sort(), [detail]);
+  const atolls = useMemo(
+    () => Array.from(new Map(detail.map((r) => [r.atoll_code, r.atoll_label])).entries()).sort((a, b) => a[1].localeCompare(b[1])),
+    [detail]
+  );
+  const types = useMemo(() => Array.from(new Set(detail.map((r) => r.establishment_type))), [detail]);
+  const amountKey = currency === 'USD' ? 'usd_amount' : 'mvr_amount';
+
+  const filtered = useMemo(() => {
+    return detail.filter((r) => {
+      if (year !== 'all' && r.year !== year) return false;
+      if (atoll !== 'all' && r.atoll_code !== atoll) return false;
+      if (type !== 'all' && r.establishment_type !== type) return false;
+      return true;
+    });
+  }, [detail, year, atoll, type]);
+
+  const sorted = useMemo(() => {
+    const rows = [...filtered];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+      let va = a[sortKey];
+      let vb = b[sortKey];
+      if (sortKey === 'amount') { va = a[amountKey]; vb = b[amountKey]; }
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+    return rows;
+  }, [filtered, sortKey, sortDir, amountKey]);
+
+  const total = useMemo(() => filtered.reduce((s, r) => s + r[amountKey], 0), [filtered, amountKey]);
+  const pageRows = sorted.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+
+  const setSort = (key) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir(key === 'amount' ? 'desc' : 'asc'); }
+    setPage(0);
+  };
+
+  const downloadCsv = () => {
+    const header = 'month,atoll_code,atoll_label,establishment_type,usd_amount,mvr_amount\n';
+    const body = sorted
+      .map((r) => [r.month, r.atoll_code, `"${r.atoll_label}"`, r.establishment_type, r.usd_amount, r.mvr_amount].join(','))
+      .join('\n');
+    const blob = new Blob([header + body], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'green_tax_collection_filtered.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const arrow = (key) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+  const fmt = (v) => (currency === 'USD' ? `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : formatMoney(v, false));
+
+  return (
+    <section className="card table-card">
+      <div className="card-header">
+        <div>
+          <div className="section-title">Green tax collection — browsable dataset</div>
+          <p>Source: MIRA monthly atoll returns, 2019–2026. {detail.length.toLocaleString()} records · resort / hotel / guesthouse / vessel by atoll.</p>
+        </div>
+        <button className="ghost-button" onClick={downloadCsv}>⬇ Export filtered CSV</button>
+      </div>
+
+      <div className="browser-filters">
+        <label>Year
+          <select value={year} onChange={(e) => { setYear(e.target.value); setPage(0); }}>
+            <option value="all">All years</option>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </label>
+        <label>Atoll
+          <select value={atoll} onChange={(e) => { setAtoll(e.target.value); setPage(0); }}>
+            <option value="all">All atolls</option>
+            {atolls.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+          </select>
+        </label>
+        <label>Establishment
+          <select value={type} onChange={(e) => { setType(e.target.value); setPage(0); }}>
+            <option value="all">All types</option>
+            {types.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        <label>Currency
+          <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+            <option value="MVR">MVR</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="browser-summary">
+        <span><b>{filtered.length.toLocaleString()}</b> rows</span>
+        <span>Total: <b>{fmt(total)}</b></span>
+        <span>Page {page + 1} of {pageCount}</span>
+      </div>
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onClick={() => setSort('month')} className="sortable">Month{arrow('month')}</th>
+              <th onClick={() => setSort('atoll_label')} className="sortable">Atoll{arrow('atoll_label')}</th>
+              <th onClick={() => setSort('establishment_type')} className="sortable">Establishment{arrow('establishment_type')}</th>
+              <th onClick={() => setSort('amount')} className="sortable">{currency} collected{arrow('amount')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map((r, i) => (
+              <tr key={`${r.month}-${r.atoll_code}-${r.establishment_type}-${i}`}>
+                <td>{monthLabel(r.month)}</td>
+                <td><b>{r.atoll_label}</b></td>
+                <td>{r.establishment_type}</td>
+                <td>{fmt(r[amountKey])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="browser-pager">
+        <button className="ghost-button" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>← Prev</button>
+        <span>{page * PAGE_SIZE + 1}–{Math.min(sorted.length, (page + 1) * PAGE_SIZE)} of {sorted.length.toLocaleString()}</span>
+        <button className="ghost-button" disabled={page >= pageCount - 1} onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>Next →</button>
+      </div>
+    </section>
+  );
 }
 
 export default App;

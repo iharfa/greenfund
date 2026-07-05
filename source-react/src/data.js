@@ -8,6 +8,7 @@ export const DATA_FILES = {
   categoryRules: '/data/green_fund_category_rules.json',
   islands: '/data/islands.geojson',
   collectionMonthly: '/data/green_fund_collection_atoll_monthly.csv',
+  collectionDetail: '/data/green_fund_collection_detail.csv',
   atollBalance: '/data/green_fund_atoll_balance.csv',
   flowMonthly: '/data/green_fund_collection_vs_expenditure_monthly.csv'
 };
@@ -103,6 +104,7 @@ export async function loadDashboardData() {
     categoryRules,
     islands,
     collectionMonthly,
+    collectionDetail,
     atollBalance,
     flowMonthly
   ] = await Promise.all([
@@ -115,9 +117,20 @@ export async function loadDashboardData() {
     fetchJson(DATA_FILES.categoryRules),
     fetchJson(DATA_FILES.islands),
     fetchCsv(DATA_FILES.collectionMonthly),
+    fetchCsv(DATA_FILES.collectionDetail),
     fetchCsv(DATA_FILES.atollBalance),
     fetchCsv(DATA_FILES.flowMonthly)
   ]);
+
+  const cleanCollectionDetail = collectionDetail.map((row) => ({
+    month: row.month,
+    year: (row.month || '').slice(0, 4),
+    atoll_code: row.atoll_code,
+    atoll_label: row.atoll_label,
+    establishment_type: row.establishment_type,
+    usd_amount: numberValue(row.usd_amount),
+    mvr_amount: numberValue(row.mvr_amount)
+  }));
 
   const cleanCollectionMonthly = collectionMonthly.map((row) => ({
     ...row,
@@ -175,6 +188,7 @@ export async function loadDashboardData() {
     months,
     categories,
     collectionMonthly: cleanCollectionMonthly,
+    collectionDetail: cleanCollectionDetail,
     atollBalance: cleanAtollBalance,
     flowMonthly: cleanFlowMonthly
   };
