@@ -132,7 +132,14 @@ p { color: var(--ink-soft); line-height: 1.6; }
 /* ===== Dashboard grid (spending map view) ===== */
 .dashboard-grid { display: grid; grid-template-columns: 300px minmax(0,1fr) 320px; gap: 18px; margin-top: 18px; align-items: start; }
 .lower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+.lower-grid.one-col { grid-template-columns: 1fr; }
 @media (max-width: 1080px) { .dashboard-grid { grid-template-columns: 1fr; } .lower-grid { grid-template-columns: 1fr; } }
+
+/* balance table column colouring (raised specificity to beat td:nth-child rule) */
+.table-card td.cell-collected { color: var(--c-pos); font-family: var(--mono); font-weight: 500; }
+.table-card td.cell-spent { color: var(--c-neg); font-family: var(--mono); font-weight: 500; }
+.table-card td.net-pos { color: var(--c-pos); }
+.table-card td.net-neg { color: var(--c-neg); }
 
 /* ===== Control panel ===== */
 .panel-section { margin-bottom: 20px; }

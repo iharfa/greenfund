@@ -876,8 +876,11 @@ function CollectionView({ atollBalance, collectionMonthly, flowMonthly, monthlyL
         <ShareCompareChart rows={atollBalance} selectedAtoll={selectedAtoll} onSelect={setSelectedAtoll} />
       </section>
 
-      <section className="lower-grid">
+      <section className="lower-grid one-col">
         <CompositionChart composition={composition} balance={atollBalance} selectedAtoll={selectedAtoll} onSelect={setSelectedAtoll} />
+      </section>
+
+      <section className="lower-grid one-col">
         <FlowTimeline flow={flowMonthly} />
       </section>
 
@@ -921,8 +924,8 @@ function CollectionView({ atollBalance, collectionMonthly, flowMonthly, monthlyL
                   onClick={() => setSelectedAtoll(row.atoll_code === selectedAtoll ? '' : row.atoll_code)}
                 >
                   <td><b>{row.atoll_label}</b></td>
-                  <td>{formatMoney(row.collection_mvr)}</td>
-                  <td>{formatMoney(row.expenditure_mvr)}</td>
+                  <td className="cell-collected">{formatMoney(row.collection_mvr)}</td>
+                  <td className="cell-spent">{formatMoney(row.expenditure_mvr)}</td>
                   <td className={row.net_flow_mvr >= 0 ? 'net-pos' : 'net-neg'}>{formatMoney(row.net_flow_mvr)}</td>
                   <td>{row.collection_share_pct}%</td>
                   <td>{row.expenditure_share_pct}%</td>
