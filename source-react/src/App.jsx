@@ -1,10 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as echarts from 'echarts/core';
+import { LineChart } from 'echarts/charts';
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  DataZoomComponent,
+  MarkLineComponent,
+  MarkPointComponent
+} from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
 import {
   categoryClassName,
   formatMoney,
   loadDashboardData,
   monthLabel
 } from './data.js';
+
+echarts.use([
+  LineChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  DataZoomComponent,
+  MarkLineComponent,
+  MarkPointComponent,
+  CanvasRenderer
+]);
 import {
   boundsForFeatures,
   createProjector,
@@ -1004,6 +1026,8 @@ function DataBrowser({ detail }) {
   const fmt = (v) => (currency === 'USD' ? `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : formatMoney(v, false));
 
   return (
+    <>
+    <CollectionChart detail={detail} />
     <section className="card table-card">
       <div className="card-header">
         <div>
@@ -1082,7 +1106,220 @@ function DataBrowser({ detail }) {
         <button className="ghost-button" disabled={page >= pageCount - 1} onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>Next →</button>
       </div>
     </section>
+    </>
   );
+}
+
+const CHART_TYPES = ['Resorts', 'Hotels', 'Guesthouse', 'Vessels'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const SERIES_PALETTE = ['#2f7d32', '#f2b705', '#3aa0ff', '#c0392b', '#8e44ad', '#16a085', '#e67e22', '#2c3e50'];
+
+function CollectionChart({ detail }) {
+  const chartRef = useRef(null);
+  const instanceRef = useRef(null);
+  const [mode, setMode] = useState('trend');
+  const [currency, setCurrency] = useState('MVR');
+  const [types, setTypes] = useState(() => new Set(CHART_TYPES));
+  const [atolls, setAtolls] = useState(null);
+
+  const amountKey = currency === 'USD' ? 'usd_amount' : 'mvr_amount';
+
+  const atollList = useMemo(() => {
+    const totals = new Map();
+    const labels = new Map();
+    detail.forEach((r) => {
+      totals.set(r.atoll_code, (totals.get(r.atoll_code) || 0) + r.mvr_amount);
+      labels.set(r.atoll_code, r.atoll_label);
+    });
+    return Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([code]) => ({ code, label: labels.get(code) }));
+  }, [detail]);
+
+  const selectedAtolls = atolls ?? new Set(atollList.slice(0, 5).map((a) => a.code));
+
+  const months = useMemo(
+    () => Array.from(new Set(detail.map((r) => r.month))).sort(),
+    [detail]
+  );
+
+  const yearMaxMonth = useMemo(() => {
+    const max = {};
+    detail.forEach((r) => {
+      const y = r.month.slice(0, 4);
+      const mo = r.month.slice(5, 7);
+      if (!max[y] || mo > max[y]) max[y] = mo;
+    });
+    return max;
+  }, [detail]);
+  const completeYears = useMemo(
+    () => new Set(Object.entries(yearMaxMonth).filter(([, mo]) => mo === '12').map(([y]) => y)),
+    [yearMaxMonth]
+  );
+
+  const option = useMemo(() => {
+    const activeTypes = (r) => types.has(r.establishment_type);
+    const codes = atollList.filter((a) => selectedAtolls.has(a.code));
+
+    if (mode === 'season') {
+      const series = codes.map((a, i) => {
+        const sums = Array(12).fill(0);
+        const counts = Array(12).fill(0);
+        const seen = Array.from({ length: 12 }, () => new Set());
+        // accumulate per (calendar month, year) then average across years
+        const byMonthYear = new Map();
+        detail.forEach((r) => {
+          if (r.atoll_code !== a.code || !activeTypes(r)) return;
+          if (!completeYears.has(r.month.slice(0, 4))) return; // complete years only for fair seasonality
+          const mIdx = Number(r.month.slice(5, 7)) - 1;
+          const key = mIdx + ':' + r.month.slice(0, 4);
+          byMonthYear.set(key, (byMonthYear.get(key) || 0) + r[amountKey]);
+        });
+        byMonthYear.forEach((val, key) => {
+          const mIdx = Number(key.split(':')[0]);
+          sums[mIdx] += val;
+          counts[mIdx] += 1;
+          seen[mIdx].add(key.split(':')[1]);
+        });
+        const avg = sums.map((s, idx) => (counts[idx] ? s / counts[idx] : 0));
+        const mean = avg.reduce((x, y) => x + y, 0) / 12;
+        return {
+          name: a.label,
+          type: 'line',
+          smooth: true,
+          symbolSize: 6,
+          data: avg.map((v) => Math.round(v)),
+          color: SERIES_PALETTE[i % SERIES_PALETTE.length],
+          markPoint: { data: [{ type: 'max', name: 'High season' }, { type: 'min', name: 'Low season' }], symbolSize: 42 },
+          markLine: { silent: true, symbol: 'none', lineStyle: { type: 'dashed', opacity: 0.5 }, data: [{ yAxis: Math.round(mean), name: 'avg' }] }
+        };
+      });
+      return {
+        tooltip: { trigger: 'axis', valueFormatter: (v) => fmtAxis(v, currency) },
+        legend: { top: 0, textStyle: { color: '#1f3a24' } },
+        grid: { left: 64, right: 24, top: 40, bottom: 40 },
+        xAxis: { type: 'category', data: MONTH_NAMES, boundaryGap: false },
+        yAxis: { type: 'value', axisLabel: { formatter: (v) => fmtAxis(v, currency) } },
+        series
+      };
+    }
+
+    // trend mode
+    const monthTotals = new Map();
+    detail.forEach((r) => {
+      if (!selectedAtolls.has(r.atoll_code) || !activeTypes(r)) return;
+      let m = monthTotals.get(r.atoll_code);
+      if (!m) { m = new Map(); monthTotals.set(r.atoll_code, m); }
+      m.set(r.month, (m.get(r.month) || 0) + r[amountKey]);
+    });
+    const series = codes.map((a, i) => ({
+      name: a.label,
+      type: 'line',
+      smooth: true,
+      showSymbol: false,
+      data: months.map((mo) => Math.round((monthTotals.get(a.code) || new Map()).get(mo) || 0)),
+      color: SERIES_PALETTE[i % SERIES_PALETTE.length]
+    }));
+    return {
+      tooltip: { trigger: 'axis', valueFormatter: (v) => fmtAxis(v, currency) },
+      legend: { top: 0, textStyle: { color: '#1f3a24' } },
+      grid: { left: 64, right: 24, top: 40, bottom: 72 },
+      xAxis: { type: 'category', data: months.map((m) => monthLabel(m)), boundaryGap: false },
+      yAxis: { type: 'value', axisLabel: { formatter: (v) => fmtAxis(v, currency) } },
+      dataZoom: [
+        { type: 'slider', start: 0, end: 100, bottom: 8 },
+        { type: 'inside' }
+      ],
+      series
+    };
+  }, [detail, mode, currency, types, selectedAtolls, atollList, months, amountKey, completeYears]);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    if (!instanceRef.current) instanceRef.current = echarts.init(chartRef.current);
+    instanceRef.current.setOption(option, true);
+    const onResize = () => instanceRef.current && instanceRef.current.resize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [option]);
+
+  useEffect(() => () => { if (instanceRef.current) { instanceRef.current.dispose(); instanceRef.current = null; } }, []);
+
+  const toggleType = (t) => setTypes((cur) => {
+    const next = new Set(cur);
+    if (next.has(t)) next.delete(t); else next.add(t);
+    return next;
+  });
+  const toggleAtoll = (code) => setAtolls(() => {
+    const next = new Set(selectedAtolls);
+    if (next.has(code)) next.delete(code); else next.add(code);
+    return next;
+  });
+
+  return (
+    <section className="card chart-card">
+      <div className="card-header">
+        <div>
+          <div className="section-title">Green tax collection — interactive trends &amp; seasonality</div>
+          <p>
+            {mode === 'trend'
+              ? 'Monthly collection per atoll. Drag the slider to change the date range; click legend items to toggle atolls.'
+              : 'Average collection by calendar month (complete years only) — peaks mark each atoll’s high season, troughs the low season.'}
+          </p>
+        </div>
+        <div className="mode-row">
+          <button className={mode === 'trend' ? 'pill active' : 'pill'} onClick={() => setMode('trend')}>Trend</button>
+          <button className={mode === 'season' ? 'pill active' : 'pill'} onClick={() => setMode('season')}>Seasonality</button>
+        </div>
+      </div>
+
+      <div className="chart-controls">
+        <div className="control-block">
+          <span className="control-label">Establishments</span>
+          <div className="chip-row">
+            {CHART_TYPES.map((t) => (
+              <button key={t} className={types.has(t) ? 'chip on' : 'chip'} onClick={() => toggleType(t)}>
+                {types.has(t) ? '✓ ' : ''}{t}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="control-block">
+          <span className="control-label">Currency</span>
+          <div className="mode-row">
+            <button className={currency === 'MVR' ? 'pill active' : 'pill'} onClick={() => setCurrency('MVR')}>MVR</button>
+            <button className={currency === 'USD' ? 'pill active' : 'pill'} onClick={() => setCurrency('USD')}>USD</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="control-block">
+        <span className="control-label">Atolls ({selectedAtolls.size} shown)
+          <button className="link-button" onClick={() => setAtolls(new Set(atollList.map((a) => a.code)))}>All</button>
+          <button className="link-button" onClick={() => setAtolls(new Set())}>None</button>
+          <button className="link-button" onClick={() => setAtolls(new Set(atollList.slice(0, 5).map((a) => a.code)))}>Top 5</button>
+        </span>
+        <div className="chip-row atoll-chips">
+          {atollList.map((a) => (
+            <button key={a.code} className={selectedAtolls.has(a.code) ? 'chip on' : 'chip'} onClick={() => toggleAtoll(a.code)}>
+              {a.code}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div ref={chartRef} className="echart" />
+    </section>
+  );
+}
+
+function fmtAxis(v, currency) {
+  const abs = Math.abs(v);
+  const sym = currency === 'USD' ? '$' : 'MVR ';
+  if (abs >= 1e9) return `${sym}${(v / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sym}${(v / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sym}${(v / 1e3).toFixed(0)}K`;
+  return `${sym}${Math.round(v)}`;
 }
 
 export default App;
