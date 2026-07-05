@@ -455,7 +455,7 @@ function SiteHeader({ view, setView }) {
     <header className="site-header">
       <div className="site-header-inner">
         <a className="logo-lockup" href="#top">
-          <span className="logo-emblem"><span /></span>
+          <span className="logo-emblem" aria-hidden="true">🤑</span>
           <span className="logo-words">
             <b>Green Fund</b>
             <small>Money Map</small>

@@ -65,8 +65,7 @@ p { color: var(--ink-soft); line-height: 1.6; }
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .logo-lockup { display: flex; align-items: center; gap: 11px; text-decoration: none; }
-.logo-emblem { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); display: grid; place-items: center; flex: none; }
-.logo-emblem span { width: 11px; height: 11px; border-radius: 50%; border: 2.5px solid var(--page-bg); }
+.logo-emblem { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--brand-tint); display: grid; place-items: center; flex: none; font-size: 18px; line-height: 1; }
 .logo-words { display: flex; flex-direction: column; line-height: 1.05; }
 .logo-words b { font-weight: 600; font-size: 15px; letter-spacing: -.01em; color: var(--ink); }
 .logo-words small { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); }
