@@ -256,50 +256,64 @@ function App() {
   const latestCollectionMonth = data.collectionDetail.reduce((max, row) => (row.month > max ? row.month : max), '');
   const latestCollectionYear = latestCollectionMonth.slice(0, 4);
   const latestCollectionLabel = monthLabel(latestCollectionMonth);
+  const earliestCollectionYear = data.collectionDetail.reduce((min, row) => (row.month < min ? row.month : min), '9').slice(0, 4);
+
+  const collected = data.atollBalance.reduce((s, r) => s + r.collection_mvr, 0);
+  const disbursed = data.atollBalance.reduce((s, r) => s + r.expenditure_mvr, 0);
+  const islandsReached = new Set(
+    data.monthlyLocations.filter((r) => Number(r.allocated_amount_mvr) > 0).map((r) => normalizeKey(r.parsed_join_key)).filter(Boolean)
+  ).size;
+  const heroMetrics = [
+    { val: formatMoney(collected), lbl: 'Green Tax collected', sub: `since ${earliestCollectionYear}` },
+    { val: formatMoney(disbursed), lbl: 'Disbursed to projects', sub: `${Math.round((disbursed / collected) * 100)}% of revenue` },
+    { val: data.projects.length.toLocaleString(), lbl: 'Projects funded', sub: 'across all sectors' },
+    { val: islandsReached.toLocaleString(), lbl: 'Islands reached', sub: 'with mapped spending' }
+  ];
+
+  const VIEW_META = {
+    spending: { kicker: 'The money map', title: 'Spending across the atolls', desc: 'Where Green Fund disbursements land, by island, category, project and month.' },
+    collection: { kicker: 'Collection & redistribution', title: 'Who funds whom', desc: 'Green tax raised versus spending received per atoll — the redistribution across the country.' },
+    browser: { kicker: 'The full dataset', title: 'Browse green tax collection', desc: 'MIRA monthly atoll returns, 2019–2026, by establishment type — chart, filter and export.' }
+  };
+  const meta = VIEW_META[view];
 
   return (
-    <main className="app-shell">
-      <section className="hero-card">
-        <div>
-          <div className="eyebrow"><span>{EMOJIS.join(' ')}</span> Green Fund spatial dashboard</div>
-          <h1>Green Fund Money Map</h1>
-          <p>
-            Track where Maldives Green Fund spending flows by island, category, project, and month.
-            The map uses parsed island joins from the workbook and accepts your islands repo GeoJSON.
-          </p>
-        </div>
-        <div className="hero-money">
-          <span>💰</span>
-          <strong>{formatMoney(totals.totalSpend)}</strong>
-          <small>{modeLabel(mode)} through {monthLabel(selectedMonth)}</small>
-        </div>
-      </section>
+    <>
+      <SiteHeader view={view} setView={setView} />
+      <Hero metrics={heroMetrics} />
+      <main className="app-shell">
+        <div className="section" id="dashboard">
+          <div className="section-head">
+            <div className="kicker">{meta.kicker}</div>
+            <h2>{meta.title}</h2>
+            <p>{meta.desc}</p>
+          </div>
 
-      <nav className="view-tabs">
-        <button className={view === 'spending' ? 'tab active' : 'tab'} onClick={() => setView('spending')}>
-          💸 Spending map
-        </button>
-        <button className={view === 'collection' ? 'tab active' : 'tab'} onClick={() => setView('collection')}>
-          🟢 Collection &amp; redistribution
-        </button>
-        <button className={view === 'browser' ? 'tab active' : 'tab'} onClick={() => setView('browser')}>
-          🔎 Data browser
-        </button>
-      </nav>
+          <nav className="view-tabs">
+            <button className={view === 'spending' ? 'tab active' : 'tab'} onClick={() => setView('spending')}>
+              Spending map
+            </button>
+            <button className={view === 'collection' ? 'tab active' : 'tab'} onClick={() => setView('collection')}>
+              Collection &amp; redistribution
+            </button>
+            <button className={view === 'browser' ? 'tab active' : 'tab'} onClick={() => setView('browser')}>
+              Data browser
+            </button>
+          </nav>
 
-      {view === 'browser' && <DataBrowser detail={data.collectionDetail} />}
+          {view === 'browser' && <DataBrowser detail={data.collectionDetail} />}
 
-      {view === 'collection' && (
-        <CollectionView
-          atollBalance={data.atollBalance}
-          collectionMonthly={data.collectionMonthly}
-          flowMonthly={data.flowMonthly}
-          monthlyLocations={data.monthlyLocations}
-        />
-      )}
+          {view === 'collection' && (
+            <CollectionView
+              atollBalance={data.atollBalance}
+              collectionMonthly={data.collectionMonthly}
+              flowMonthly={data.flowMonthly}
+              monthlyLocations={data.monthlyLocations}
+            />
+          )}
 
-      {view === 'spending' && (
-      <>
+          {view === 'spending' && (
+          <>
       <section className="kpi-grid">
         <Kpi icon="💵" label="Selected spend" value={formatMoney(totals.totalSpend)} detail="Mapped plus unmapped" />
         <Kpi icon="💲" label="Mapped spend" value={formatMoney(totals.mappedSpend)} detail={`${totals.mappedIslands} islands shown`} />
@@ -421,31 +435,122 @@ function App() {
         <CategoryBreakdown rows={categoryBreakdown} total={totals.totalSpend} />
       </section>
 
-      <ProjectTable rows={projectRows} />
-      </>
-      )}
+          <ProjectTable rows={projectRows} />
+          </>
+          )}
+        </div>
+      </main>
+      <SiteFooter latestCollectionYear={latestCollectionYear} latestCollectionLabel={latestCollectionLabel} />
+    </>
+  );
+}
 
-      <footer className="data-disclaimer">
-        <strong>Data notes</strong>
-        <p>
-          Green tax collection figures are reported by the Maldives Inland Revenue Authority (MIRA) at the
-          atoll/city level only. MIRA is unable to provide data at a resolution that would allow individual
-          taxpayers to be identified, so collection cannot be disaggregated below the atoll.
+function SiteHeader({ view, setView }) {
+  const links = [
+    ['spending', 'Money map'],
+    ['collection', 'Redistribution'],
+    ['browser', 'Data browser']
+  ];
+  return (
+    <header className="site-header">
+      <div className="site-header-inner">
+        <a className="logo-lockup" href="#top">
+          <span className="logo-emblem"><span /></span>
+          <span className="logo-words">
+            <b>Green Fund</b>
+            <small>Money Map</small>
+          </span>
+        </a>
+        <nav className="header-nav" aria-label="Primary">
+          {links.map(([key, label]) => (
+            <button key={key} className={view === key ? 'nav-link active' : 'nav-link'} onClick={() => setView(key)}>
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function Hero({ metrics }) {
+  return (
+    <section className="hero" id="top">
+      <div className="hero-inner">
+        <div className="hero-kicker">Maldives Green Fund · Public transparency</div>
+        <h1>Where the Green&nbsp;Tax goes.</h1>
+        <p className="hero-lead">
+          Every visitor to the Maldives pays a Green Tax. This dashboard traces how that money moves — from
+          collection across the atolls to the projects it funds — using official MIRA collection returns and
+          published Green Fund spending.
         </p>
-        <p>
-          <strong className="warn-flag">⚠ {latestCollectionYear} is a partial year.</strong> Green tax collection data
-          runs through {latestCollectionLabel}, so any total that spans all years includes an incomplete final year and
-          will understate it. Year-on-year comparisons should use complete years only.
-        </p>
-        <p>
-          Collection is keyed by atoll/city while green fund expenditure is keyed by island, then rolled up to
-          atoll for comparison. Malé City raises green tax but has no green-fund spending mapped to it in the
-          published expenditure data — such spending is likely recorded as national or unmapped — so its net-flow
-          figure overstates the true redistribution. Net-flow and share comparisons are indicative, not audited
-          reconciliations.
-        </p>
-      </footer>
-    </main>
+        <div className="hero-metrics">
+          {metrics.map((m) => (
+            <div className="hero-metric" key={m.lbl}>
+              <div className="val">{m.val}</div>
+              <div className="lbl">{m.lbl}</div>
+              <div className="sub">{m.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SiteFooter({ latestCollectionYear, latestCollectionLabel }) {
+  return (
+    <footer className="site-footer" id="about">
+      <div className="footer-inner">
+        <div className="footer-top">
+          <div className="footer-about">
+            <div className="kicker">About</div>
+            <h3>The Green Fund, in brief</h3>
+            <p>
+              A Green Tax is charged per guest, per night at tourist facilities. Revenue flows into the Green Fund,
+              which finances environmental infrastructure — waste management, water and sewerage, coastal protection,
+              harbours and renewable energy — on islands across the country.
+            </p>
+          </div>
+          <div className="footer-cols">
+            <nav className="footer-col" aria-label="Data links">
+              <span className="col-head">Data</span>
+              <a href="#dashboard">Money map</a>
+              <a href="#dashboard">Redistribution</a>
+              <a href="#dashboard">Data browser</a>
+            </nav>
+            <nav className="footer-col" aria-label="Source links">
+              <span className="col-head">Source</span>
+              <a href="https://www.mira.gov.mv" target="_blank" rel="noreferrer">MIRA</a>
+              <a href="https://www.finance.gov.mv" target="_blank" rel="noreferrer">Ministry of Finance</a>
+            </nav>
+          </div>
+        </div>
+        <div className="footer-rule" />
+        <div className="footer-note">
+          <p>
+            Green tax collection figures are reported by the Maldives Inland Revenue Authority (MIRA) at the
+            atoll/city level only. MIRA is unable to provide data at a resolution that would allow individual
+            taxpayers to be identified, so collection cannot be disaggregated below the atoll.
+          </p>
+          <p>
+            <strong className="warn-flag">⚠ {latestCollectionYear} is a partial year.</strong> Collection data runs
+            through {latestCollectionLabel}, so any total spanning all years includes an incomplete final year and will
+            understate it. Year-on-year comparisons should use complete years only.
+          </p>
+          <p>
+            Collection is keyed by atoll/city while spending is keyed by island then rolled up to atoll. Malé City
+            raises green tax but has no spending mapped to it in the published data (likely recorded as national or
+            unmapped), so its net-flow overstates the true redistribution. Net-flow and share comparisons are
+            indicative, not audited reconciliations.
+          </p>
+        </div>
+        <div className="footer-meta">
+          <span>Green Fund Money Map · Spatial dashboard for Maldives Green Fund spending</span>
+          <span>Data: MIRA &amp; Ministry of Finance</span>
+        </div>
+      </div>
+    </footer>
   );
 }
 
