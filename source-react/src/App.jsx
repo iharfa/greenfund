@@ -1021,6 +1021,8 @@ function QaCard({ project, research, override, unlocked, onAssign, onClear }) {
             </div>
           )}
         </div>
+      ) : project.project_code === 'Z-ZZZZZZ-ZZZ' ? (
+        <p className="qa-no-research">"Other Activities" is a catch-all bucket in the source data, not a coded project - there's nothing here for research to find. To be RTI'd separately.</p>
       ) : (
         <p className="qa-no-research">No AI research yet for this project. Run <code>npm run research</code> to generate it.</p>
       )}
@@ -1716,12 +1718,14 @@ function CollectionChart({ detail }) {
     }
 
     if (mode === 'heatmap') {
-      // One row per atoll (all atolls, north to south), one column per month, colored by that
-      // atoll's own share of its complete-year average annual collection - so a small atoll's
-      // high season shows up as clearly as a big atoll's, instead of being washed out by scale.
+      // One row per atoll (all atolls, north to south), one column per month. Color is
+      // normalized WITHIN each atoll's own 12 months (its coolest month = 0, its warmest = 100),
+      // so every atoll's own high/low season reads clearly regardless of how the other atolls'
+      // establishment mix or absolute scale looks - a global color scale would let one big or
+      // noisy atoll wash out everyone else's pattern.
+      const MIN_SAMPLE_MONTHS = 6; // fewer real (month, year) data points than this isn't a "season", it's one data point
       const rows = atollList;
       const cells = [];
-      let maxShare = 0;
       rows.forEach((a, rowIdx) => {
         const sums = Array(12).fill(0);
         const counts = Array(12).fill(0);
@@ -1738,19 +1742,31 @@ function CollectionChart({ detail }) {
           sums[mIdx] += val;
           counts[mIdx] += 1;
         });
+        const sampleMonths = counts.reduce((x, y) => x + y, 0);
         const avg = sums.map((s, idx) => (counts[idx] ? s / counts[idx] : 0));
         const yearTotal = avg.reduce((x, y) => x + y, 0) || 1;
+        const shares = avg.map((v) => (v / yearTotal) * 100);
+        const rowMin = Math.min(...shares);
+        const rowMax = Math.max(...shares);
+        const rowSpread = rowMax - rowMin || 1;
         // rows render bottom-to-top on a category axis, so reverse the index to put north on top.
         const yIdx = rows.length - 1 - rowIdx;
-        avg.forEach((v, mIdx) => {
-          const share = (v / yearTotal) * 100;
-          maxShare = Math.max(maxShare, share);
-          cells.push([mIdx, yIdx, Math.round(share * 10) / 10, Math.round(v)]);
+        const enough = sampleMonths >= MIN_SAMPLE_MONTHS;
+        shares.forEach((share, mIdx) => {
+          const colorValue = enough ? ((share - rowMin) / rowSpread) * 100 : null;
+          const point = { value: [mIdx, yIdx, colorValue, Math.round(share * 10) / 10, Math.round(avg[mIdx]), enough ? 1 : 0] };
+          if (!enough) point.itemStyle = { color: '#F1F4F1', decal: { symbol: 'line', dashArrayX: [4, 4], color: '#DDE4DF' } };
+          cells.push(point);
         });
       });
       return {
         tooltip: {
-          formatter: (p) => `${rows[rows.length - 1 - p.value[1]].label}, ${MONTH_NAMES[p.value[0]]}<br/>${p.value[2]}% of FY total &middot; ${fmtAxis(p.value[3], currency)} avg`
+          formatter: (p) => {
+            const label = rows[rows.length - 1 - p.value[1]].label;
+            const month = MONTH_NAMES[p.value[0]];
+            if (!p.value[5]) return `${label}, ${month}<br/>Not enough historical data for this establishment filter`;
+            return `${label}, ${month}<br/>${p.value[3]}% of a typical year &middot; ${fmtAxis(p.value[4], currency)} avg<br/><em>color shows this atoll's own high/low months</em>`;
+          }
         },
         grid: { left: 90, right: 24, top: 20, bottom: 76 },
         xAxis: { type: 'category', data: MONTH_NAMES, position: 'top', splitArea: { show: true } },
@@ -1758,13 +1774,13 @@ function CollectionChart({ detail }) {
         visualMap: {
           dimension: 2,
           min: 0,
-          max: Math.max(10, Math.ceil(maxShare)),
-          calculable: true,
+          max: 100,
+          calculable: false,
           orient: 'horizontal',
           left: 'center',
           bottom: 0,
           inRange: { color: ['#EAF2EE', '#7FB8AC', '#0E5C51'] },
-          text: ['High season', 'Low season'],
+          text: ['This atoll\'s high season', 'This atoll\'s low season'],
           textStyle: { color: '#51665F', fontSize: 11 }
         },
         series: [{
@@ -1838,7 +1854,7 @@ function CollectionChart({ detail }) {
             {mode === 'trend'
               ? `Monthly collection, one line per ${groupBy === 'type' ? 'establishment type (atolls summed)' : 'atoll (types summed)'}. Drag the slider to change the date range; click legend items to toggle lines.`
               : mode === 'heatmap'
-              ? 'Every atoll, one row each (north to south), colored by its own share of a typical year - so each atoll\'s high and low season shows up regardless of how big or small it is.'
+              ? 'Every atoll, one row each (north to south), colored against its own months only - each atoll\'s high and low season shows up regardless of scale. Grayed-out rows don\'t have enough history for this establishment filter to mean anything.'
               : seasonSeries === 'year'
               ? 'Collection by calendar month, with one line per year. Use it to compare the seasonal pattern between years for the selected atolls and establishments.'
               : `Average collection by calendar month across complete years, with one line per ${groupBy === 'type' ? 'establishment type' : 'atoll'}. The highest month is the peak season and the lowest is the off season.`}
