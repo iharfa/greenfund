@@ -1332,7 +1332,7 @@ function CollectionChart({ detail }) {
       });
       return {
         tooltip: { trigger: 'axis', valueFormatter: (v) => (v == null ? '—' : fmtAxis(v, currency)) },
-        legend: { top: 0, textStyle: { color: '#1f3a24' } },
+        legend: { type: 'scroll', top: 0, padding: [4, 30], textStyle: { color: '#1f3a24' }, pageIconColor: '#0E5C51', pageTextStyle: { color: '#51665F' } },
         grid: { left: 64, right: 24, top: 40, bottom: 40 },
         xAxis: { type: 'category', data: MONTH_NAMES, boundaryGap: false },
         yAxis: { type: 'value', axisLabel: { formatter: (v) => fmtAxis(v, currency) } },
@@ -1388,7 +1388,7 @@ function CollectionChart({ detail }) {
       });
       return {
         tooltip: { trigger: 'axis', valueFormatter: (v) => fmtAxis(v, currency) },
-        legend: { top: 0, textStyle: { color: '#1f3a24' } },
+        legend: { type: 'scroll', top: 0, padding: [4, 30], textStyle: { color: '#1f3a24' }, pageIconColor: '#0E5C51', pageTextStyle: { color: '#51665F' } },
         grid: { left: 64, right: 24, top: 40, bottom: 40 },
         xAxis: { type: 'category', data: MONTH_NAMES, boundaryGap: false },
         yAxis: { type: 'value', axisLabel: { formatter: (v) => fmtAxis(v, currency) } },
@@ -1414,7 +1414,7 @@ function CollectionChart({ detail }) {
     });
     return {
       tooltip: { trigger: 'axis', valueFormatter: (v) => fmtAxis(v, currency) },
-      legend: { top: 0, textStyle: { color: '#1f3a24' } },
+      legend: { type: 'scroll', top: 0, padding: [4, 30], textStyle: { color: '#1f3a24' }, pageIconColor: '#0E5C51', pageTextStyle: { color: '#51665F' } },
       grid: { left: 64, right: 24, top: 40, bottom: 72 },
       xAxis: { type: 'category', data: months.map((m) => monthLabel(m)), boundaryGap: false },
       yAxis: { type: 'value', axisLabel: { formatter: (v) => fmtAxis(v, currency) } },
