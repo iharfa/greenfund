@@ -113,7 +113,8 @@ function categoryEmoji(category) {
   if (text.includes('waste') || text.includes('sani')) return '🗑️';
   if (text.includes('coastal')) return '🌊';
   if (text.includes('drainage') || text.includes('storm')) return '🌧️';
-  if (text.includes('water') || text.includes('sewer')) return '💧';
+  if (text.includes('sewer')) return '💩';
+  if (text.includes('water')) return '💧';
   if (text.includes('energy') || text.includes('climate')) return '⚡';
   if (text.includes('harbour') || text.includes('harbor')) return '⚓';
   if (text.includes('environment')) return '🌱';
