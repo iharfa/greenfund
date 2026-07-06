@@ -132,6 +132,22 @@ function App() {
   const [view, setView] = useState('spending');
   const [localOverrides, setLocalOverrides] = useState(readLocalOverrides);
   const [qaUnlocked, setQaUnlocked] = useState(false);
+  const [contextCollapsed, setContextCollapsed] = useState(false);
+
+  // Collapse the context band once the dashboard scrolls up near the top of the viewport.
+  useEffect(() => {
+    const el = document.getElementById('dashboard');
+    if (!el) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) setContextCollapsed(true); },
+      { rootMargin: '-72px 0px 0px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [rawData]);
+
+  // Switching sections (in-page tabs or header nav) keeps the context collapsed.
+  const selectView = (next) => { setView(next); setContextCollapsed(true); };
 
   useEffect(() => {
     loadDashboardData()
@@ -329,9 +345,9 @@ function App() {
 
   return (
     <>
-      <SiteHeader view={view} setView={setView} />
+      <SiteHeader view={view} setView={selectView} onOpenContext={() => setContextCollapsed(false)} />
       <Hero metrics={heroMetrics} />
-      <AboutContext />
+      <AboutContext collapsed={contextCollapsed} onToggle={() => setContextCollapsed((c) => !c)} />
       <main className="app-shell">
         <div className="section" id="dashboard">
           <div className="section-head">
@@ -341,16 +357,16 @@ function App() {
           </div>
 
           <nav className="view-tabs">
-            <button className={view === 'spending' ? 'tab active' : 'tab'} onClick={() => setView('spending')}>
+            <button className={view === 'spending' ? 'tab active' : 'tab'} onClick={() => selectView('spending')}>
               Spending map
             </button>
-            <button className={view === 'collection' ? 'tab active' : 'tab'} onClick={() => setView('collection')}>
+            <button className={view === 'collection' ? 'tab active' : 'tab'} onClick={() => selectView('collection')}>
               Collection &amp; redistribution
             </button>
-            <button className={view === 'browser' ? 'tab active' : 'tab'} onClick={() => setView('browser')}>
+            <button className={view === 'browser' ? 'tab active' : 'tab'} onClick={() => selectView('browser')}>
               Data browser
             </button>
-            <button className={view === 'quality' ? 'tab active' : 'tab'} onClick={() => setView('quality')}>
+            <button className={view === 'quality' ? 'tab active' : 'tab'} onClick={() => selectView('quality')}>
               Data quality {data?.unmappedProjects?.length ? `(${data.unmappedProjects.length} open)` : ''}
             </button>
           </nav>
@@ -506,7 +522,7 @@ function App() {
   );
 }
 
-function SiteHeader({ view, setView }) {
+function SiteHeader({ view, setView, onOpenContext }) {
   const links = [
     ['spending', 'Money map'],
     ['collection', 'Redistribution'],
@@ -524,7 +540,7 @@ function SiteHeader({ view, setView }) {
           </span>
         </a>
         <nav className="header-nav" aria-label="Primary">
-          <a className="nav-link" href="#context">Context</a>
+          <a className="nav-link" href="#context" onClick={() => onOpenContext && onOpenContext()}>Context</a>
           {links.map(([key, label]) => (
             <button key={key} className={view === key ? 'nav-link active' : 'nav-link'} onClick={() => setView(key)}>
               {label}
@@ -562,13 +578,22 @@ function Hero({ metrics }) {
   );
 }
 
-function AboutContext() {
+function AboutContext({ collapsed, onToggle }) {
   return (
-    <section className="context-band" id="context">
+    <section className={collapsed ? 'context-band collapsed' : 'context-band'} id="context">
       <div className="context-inner">
-        <div className="kicker">Why this matters</div>
-        <h2>The Green Tax, and who it should serve</h2>
+        <div className="context-topline">
+          <div>
+            <div className="kicker">Why this matters</div>
+            <h2>The Green Tax, and who it should serve</h2>
+          </div>
+          <button className="context-toggle" onClick={onToggle} aria-expanded={!collapsed}>
+            {collapsed ? 'Read the full context ↓' : 'Collapse ↑'}
+          </button>
+        </div>
 
+        {collapsed ? null : (
+        <>
         <div className="context-grid">
           <div className="context-col">
             <h3>Where the tax comes from</h3>
@@ -609,6 +634,8 @@ function AboutContext() {
             line inside the broader state budget.
           </p>
         </div>
+        </>
+        )}
       </div>
     </section>
   );
