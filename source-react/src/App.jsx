@@ -347,7 +347,7 @@ function App() {
   return (
     <>
       <SiteHeader view={view} setView={selectView} onOpenContext={() => setContextCollapsed(false)} />
-      <Hero metrics={heroMetrics} balance={fundBalance} />
+      <Hero metrics={heroMetrics} balance={fundBalance} collapsed={contextCollapsed} onExpand={() => setContextCollapsed(false)} />
       <AboutContext collapsed={contextCollapsed} onToggle={() => setContextCollapsed((c) => !c)} />
       <main className="app-shell">
         <div className="section" id="dashboard">
@@ -553,7 +553,20 @@ function SiteHeader({ view, setView, onOpenContext }) {
   );
 }
 
-function Hero({ metrics, balance }) {
+function Hero({ metrics, balance, collapsed, onExpand }) {
+  if (collapsed) {
+    return (
+      <section className="hero collapsed" id="top">
+        <div className="hero-inner">
+          <button className="hero-collapsed" onClick={onExpand} aria-expanded="false">
+            <span className="hero-collapsed-title">Green Fund Watch</span>
+            <span className="hero-collapsed-bal">{formatMoney(balance)} <small>in the fund</small></span>
+            <span className="hero-collapsed-hint">Expand ↓</span>
+          </button>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="hero" id="top">
       <div className="hero-inner">

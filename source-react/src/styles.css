@@ -88,6 +88,13 @@ p { color: var(--ink-soft); line-height: 1.6; }
 .hero-kicker, .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
 .hero-kicker { color: var(--brand-mint); }
 .hero h1 { font-size: clamp(34px,6vw,58px); line-height: 1.03; letter-spacing: -.015em; margin: 16px 0 0; max-width: 16ch; color: #F4FAF7; }
+.hero.collapsed .hero-inner { padding-top: clamp(16px,3vw,22px); padding-bottom: clamp(16px,3vw,22px); }
+.hero-collapsed { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; background: none; border: none; color: #EAF3EF; text-align: left; cursor: pointer; }
+.hero-collapsed-title { font-family: var(--serif); font-weight: 500; font-size: clamp(20px,3vw,28px); color: #F4FAF7; }
+.hero-collapsed-bal { font-family: var(--mono); font-size: clamp(18px,2.4vw,24px); color: #F4FAF7; margin-left: auto; }
+.hero-collapsed-bal small { font-family: var(--sans); font-size: 12px; color: rgba(234,243,239,.6); }
+.hero-collapsed-hint { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--brand-mint); text-transform: uppercase; }
+.hero-collapsed:hover .hero-collapsed-hint { color: #F4FAF7; }
 .hero-top { display: flex; justify-content: space-between; align-items: stretch; gap: clamp(24px,4vw,52px); flex-wrap: wrap; }
 .hero-copy { flex: 1 1 440px; min-width: 0; }
 .hero-balance {
