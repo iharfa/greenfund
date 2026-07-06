@@ -1469,6 +1469,7 @@ function DataBrowser({ detail }) {
   const [sortKey, setSortKey] = useState('month');
   const [sortDir, setSortDir] = useState('asc');
   const [page, setPage] = useState(0);
+  const [tableOpen, setTableOpen] = useState(false);
   const PAGE_SIZE = 100;
 
   const years = useMemo(() => Array.from(new Set(detail.map((r) => r.year))).sort(), [detail]);
@@ -1539,16 +1540,25 @@ function DataBrowser({ detail }) {
 
   return (
     <>
-    <CollectionChart detail={detail} />
+    <CollectionChart detail={detail} fixedMode="trend" />
+    <CollectionChart detail={detail} fixedMode="season" />
+    <CollectionChart detail={detail} fixedMode="heatmap" />
     <section className="card table-card">
       <div className="card-header">
         <div>
           <div className="section-title">Green tax collection: full dataset</div>
           <p>Source: MIRA monthly atoll returns, 2019–2026. {detail.length.toLocaleString()} records · resort / hotel / guesthouse / vessel by atoll.</p>
         </div>
-        <button className="ghost-button" onClick={downloadCsv}>⬇ Export filtered CSV</button>
+        <div className="table-card-actions">
+          <button className="ghost-button" onClick={() => setTableOpen((o) => !o)} aria-expanded={tableOpen}>
+            {tableOpen ? 'Hide dataset ↑' : 'Show dataset ↓'}
+          </button>
+          {tableOpen && <button className="ghost-button" onClick={downloadCsv}>⬇ Export filtered CSV</button>}
+        </div>
       </div>
 
+      {tableOpen && (
+      <>
       <div className="browser-filters">
         <label>Year
           <select value={year} onChange={(e) => { setYear(e.target.value); setPage(0); }}>
@@ -1617,20 +1627,24 @@ function DataBrowser({ detail }) {
         <span>{page * PAGE_SIZE + 1}–{Math.min(sorted.length, (page + 1) * PAGE_SIZE)} of {sorted.length.toLocaleString()}</span>
         <button className="ghost-button" disabled={page >= pageCount - 1} onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>Next →</button>
       </div>
+      </>
+      )}
     </section>
     </>
   );
 }
 
 const CHART_TYPES = ['Resorts', 'Hotels', 'Guesthouse', 'Vessels'];
+const CHART_TITLES = { trend: 'Collection trend over time', season: 'Seasonality by month', heatmap: 'Atoll seasonality heatmap' };
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SERIES_PALETTE = ['#2f7d32', '#f2b705', '#3aa0ff', '#c0392b', '#8e44ad', '#16a085', '#e67e22', '#2c3e50'];
 const YEAR_PALETTE = ['#0E5C51', '#2f7d32', '#7FB8AC', '#f2b705', '#e67e22', '#c0392b', '#8e44ad', '#3aa0ff'];
 
-function CollectionChart({ detail }) {
+function CollectionChart({ detail, fixedMode }) {
   const chartRef = useRef(null);
   const instanceRef = useRef(null);
-  const [mode, setMode] = useState('trend');
+  const [modeState, setMode] = useState('trend');
+  const mode = fixedMode || modeState;
   const [currency, setCurrency] = useState('MVR');
   const [groupBy, setGroupBy] = useState('atoll');
   const [seasonSeries, setSeasonSeries] = useState('aggregate');
@@ -1925,7 +1939,7 @@ function CollectionChart({ detail }) {
     <section className="card chart-card">
       <div className="card-header">
         <div>
-          <div className="section-title">Collection trends and seasonality</div>
+          <div className="section-title">{fixedMode ? CHART_TITLES[mode] : 'Collection trends and seasonality'}</div>
           <p>
             {mode === 'trend'
               ? `Monthly collection, one line per ${groupBy === 'type' ? 'establishment type (atolls summed)' : 'atoll (types summed)'}. Drag the slider to change the date range; click legend items to toggle lines.`
@@ -1936,11 +1950,13 @@ function CollectionChart({ detail }) {
               : `Average collection by calendar month across complete years, with one line per ${groupBy === 'type' ? 'establishment type' : 'atoll'}. The highest month is the peak season and the lowest is the off season.`}
           </p>
         </div>
-        <div className="mode-row">
-          <button className={mode === 'trend' ? 'pill active' : 'pill'} onClick={() => setMode('trend')}>Trend</button>
-          <button className={mode === 'season' ? 'pill active' : 'pill'} onClick={() => setMode('season')}>Seasonality</button>
-          <button className={mode === 'heatmap' ? 'pill active' : 'pill'} onClick={() => setMode('heatmap')}>Atoll heatmap</button>
-        </div>
+        {!fixedMode && (
+          <div className="mode-row">
+            <button className={mode === 'trend' ? 'pill active' : 'pill'} onClick={() => setMode('trend')}>Trend</button>
+            <button className={mode === 'season' ? 'pill active' : 'pill'} onClick={() => setMode('season')}>Seasonality</button>
+            <button className={mode === 'heatmap' ? 'pill active' : 'pill'} onClick={() => setMode('heatmap')}>Atoll heatmap</button>
+          </div>
+        )}
       </div>
 
       <div className="chart-controls">

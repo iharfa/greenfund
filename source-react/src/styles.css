@@ -386,3 +386,5 @@ th.sortable:hover { color: var(--brand); }
 /* ===== Timeline year breaks ===== */
 .year-break { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 2 4; opacity: .55; }
 .year-label { font-family: var(--mono); font-size: 11px; fill: var(--ink-faint); }
+
+.table-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
