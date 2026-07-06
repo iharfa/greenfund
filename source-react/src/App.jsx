@@ -110,12 +110,14 @@ function groupByCategory(rows, amountField = 'allocated_amount_mvr') {
 
 function categoryEmoji(category) {
   const text = String(category || '').toLowerCase();
-  if (text.includes('waste')) return '💸';
-  if (text.includes('coastal')) return '💰';
-  if (text.includes('water')) return '💵';
-  if (text.includes('drainage')) return '💲';
-  if (text.includes('energy') || text.includes('climate')) return '🤑';
-  return '💲';
+  if (text.includes('waste') || text.includes('sani')) return '🗑️';
+  if (text.includes('coastal')) return '🌊';
+  if (text.includes('drainage') || text.includes('storm')) return '🌧️';
+  if (text.includes('water') || text.includes('sewer')) return '💧';
+  if (text.includes('energy') || text.includes('climate')) return '⚡';
+  if (text.includes('harbour') || text.includes('harbor')) return '⚓';
+  if (text.includes('environment')) return '🌱';
+  return '🏗️';
 }
 
 function App() {
@@ -328,6 +330,7 @@ function App() {
     <>
       <SiteHeader view={view} setView={setView} />
       <Hero metrics={heroMetrics} />
+      <AboutContext />
       <main className="app-shell">
         <div className="section" id="dashboard">
           <div className="section-head">
@@ -484,8 +487,11 @@ function App() {
         </section>
       </section>
 
-      <section className="lower-grid">
+      <section className="lower-grid one-col">
         <TimelineChart timeline={timeline} selectedMonth={selectedMonth} onSelectMonth={(month) => setMonthIndex(data.months.indexOf(month))} />
+      </section>
+
+      <section className="lower-grid one-col">
         <CategoryBreakdown rows={categoryBreakdown} total={totals.totalSpend} />
       </section>
 
@@ -513,10 +519,11 @@ function SiteHeader({ view, setView }) {
           <span className="logo-emblem" aria-hidden="true">🤑</span>
           <span className="logo-words">
             <b>Green Fund</b>
-            <small>Money Map</small>
+            <small>Watch</small>
           </span>
         </a>
         <nav className="header-nav" aria-label="Primary">
+          <a className="nav-link" href="#context">Context</a>
           {links.map(([key, label]) => (
             <button key={key} className={view === key ? 'nav-link active' : 'nav-link'} onClick={() => setView(key)}>
               {label}
@@ -533,7 +540,8 @@ function Hero({ metrics }) {
     <section className="hero" id="top">
       <div className="hero-inner">
         <div className="hero-kicker">Maldives Green Fund · Public transparency</div>
-        <h1>Where the Green&nbsp;Tax goes.</h1>
+        <h1>Green Fund Watch</h1>
+        <p className="hero-subtitle">Are we spending this on “Green” projects?</p>
         <p className="hero-lead">
           Every visitor to the Maldives pays a Green Tax for each night of their stay. This dashboard shows how
           much is collected in each atoll and where the Green Fund spends it, drawn from MIRA collection returns
@@ -547,6 +555,58 @@ function Hero({ metrics }) {
               <div className="sub">{m.sub}</div>
             </div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AboutContext() {
+  return (
+    <section className="context-band" id="context">
+      <div className="context-inner">
+        <div className="kicker">Why this matters</div>
+        <h2>The Green Tax, and who it should serve</h2>
+
+        <div className="context-grid">
+          <div className="context-col">
+            <h3>Where the tax comes from</h3>
+            <p>
+              Green Tax is collected from every tourist bed night in the Maldives. It started on 1 November 2015
+              at USD 6 per night for resorts, hotels and tourist vessels. Guesthouses were added on 1 October 2016
+              at USD 3 per night. From 1 January 2025, the rate doubled to USD 12 for resorts, vessels and larger
+              tourism establishments, and USD 6 for smaller inhabited-island hotels and guesthouses. Children under
+              two are exempt.
+            </p>
+            <h3>What the fund is for</h3>
+            <p>
+              Government documents describe the Maldives Green Fund as a mechanism to finance environmental
+              protection, climate adaptation and mitigation, including coastal protection, waste management,
+              drainage, water and sewerage, and renewable energy projects.
+            </p>
+          </div>
+
+          <div className="context-col">
+            <h3>The accountability question</h3>
+            <p>
+              This dashboard tracks a core public accountability question: who raises Green Tax, who receives Green
+              Fund spending, and who decides? Some atolls and islands generate millions in Green Tax through
+              tourism, but public Green Fund reports show spending is not clearly returned in proportion to where
+              the revenue came from. This raises a fairness issue. Communities bearing tourism pressure and
+              environmental costs should have a direct voice in how a share of the funds is spent.
+            </p>
+          </div>
+        </div>
+
+        <div className="context-callout">
+          <h3>Green Tax spending should be democratized</h3>
+          <p>
+            A fixed percentage of Green Tax collected from each region should be reserved for that region. Atoll
+            councils, island councils, civil society and local communities should decide priorities collectively.
+            The Green Fund should also operate as a separate, transparent fund with clear earmarking, direct
+            reporting, public project selection criteria, and traceable expenditure, rather than functioning as a
+            line inside the broader state budget.
+          </p>
         </div>
       </div>
     </section>
@@ -644,12 +704,12 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
     const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    });
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
       attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
-    });
-    L.control.layers({ Streets: streets, Satellite: satellite }).addTo(map);
+    }).addTo(map);
+    L.control.layers({ Satellite: satellite, Streets: streets }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
@@ -692,19 +752,12 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
     layer.clearLayers();
 
     const points = [];
-    const atollGroups = new Map();
 
     features.forEach((feature) => {
       const key = normalizeKey(featureJoinKey(feature));
       const [lon, lat] = featureCentroid(feature);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       points.push([lat, lon]);
-
-      const atollCode = key && key.split('.')[0];
-      if (atollCode) {
-        if (!atollGroups.has(atollCode)) atollGroups.set(atollCode, []);
-        atollGroups.get(atollCode).push([lat, lon]);
-      }
 
       const total = key ? locationTotals.get(key) : null;
       if (!total) {
@@ -729,37 +782,6 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
       marker.addTo(layer);
     });
 
-    // Outline each atoll from the islands we actually have points for. The source GeoJSON
-    // only has island centroids, not real atoll boundaries, so this is a padded hull around
-    // those points - an indicative outline, not a surveyed administrative boundary.
-    const PAD_DEG = 0.045;
-    atollGroups.forEach((pts, code) => {
-      const cLat = pts.reduce((s, p) => s + p[0], 0) / pts.length;
-      const cLon = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-      let topLat;
-      if (pts.length < 3) {
-        const spread = pts.reduce((max, p) => Math.max(max, Math.hypot(p[0] - cLat, p[1] - cLon)), 0);
-        const r = spread + PAD_DEG;
-        L.circle([cLat, cLon], { radius: r * 111_000, className: 'atoll-outline-shape' }).addTo(layer);
-        topLat = cLat + r;
-      } else {
-        const hull = convexHull(pts);
-        const inflated = hull.map(([lat, lon]) => {
-          const dLat = lat - cLat;
-          const dLon = lon - cLon;
-          const dist = Math.hypot(dLat, dLon) || 1;
-          const scale = (dist + PAD_DEG) / dist;
-          return [cLat + dLat * scale, cLon + dLon * scale];
-        });
-        L.polygon(inflated, { className: 'atoll-outline-shape' }).addTo(layer);
-        topLat = Math.max(...inflated.map(([lat]) => lat));
-      }
-      L.marker([topLat + 0.015, cLon], {
-        icon: L.divIcon({ className: '', html: `<div class="atoll-outline-label">${code}</div>`, iconSize: [40, 16], iconAnchor: [20, 8] }),
-        interactive: false
-      }).addTo(layer);
-    });
-
     pointsRef.current = points;
     if (points.length && !fitDoneRef.current) {
       const size = map.getSize();
@@ -776,13 +798,26 @@ function MoneyMap({ features, locationTotals, selectedIsland, onSelectIsland }) 
       <div ref={containerRef} className="leaflet-map" role="img" aria-label="Green Fund spending map" />
       <div className="map-legend">
         <strong>Top island spends</strong>
-        {topSpenders.map((row, index) => (
-          <button key={row.join_key} onClick={() => onSelectIsland(row.join_key)}>
-            <span>{index + 1}</span>
-            <b>{row.join_key}</b>
-            <em>{formatMoney(row.amount, false)}</em>
-          </button>
-        ))}
+        {topSpenders.map((row, index) => {
+          const projects = Array.from(row.projectNames || []).filter(Boolean);
+          return (
+            <div className="legend-item" key={row.join_key}>
+              <button className="legend-head" onClick={() => onSelectIsland(row.join_key)}>
+                <span>{index + 1}</span>
+                <b>{row.join_key}</b>
+                <em>{formatMoney(row.amount, false)}</em>
+              </button>
+              {projects.length > 0 && (
+                <ul className="legend-projects">
+                  {projects.slice(0, 6).map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                  {projects.length > 6 && <li className="legend-more">+{projects.length - 6} more projects</li>}
+                </ul>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1028,11 +1063,21 @@ function QaCard({ project, research, override, unlocked, onAssign, onClear }) {
 }
 
 function TimelineChart({ timeline, selectedMonth, onSelectMonth }) {
-  const width = 820;
-  const height = 250;
-  const padding = 34;
+  const width = 1120;
+  const height = 270;
+  const padding = 40;
   const max = Math.max(...timeline.map((row) => Math.max(0, row.amount)), 1);
-  const barWidth = Math.max(3, (width - padding * 2) / Math.max(1, timeline.length) - 2);
+  const plotW = width - padding * 2;
+  const step = plotW / Math.max(1, timeline.length);
+  const barWidth = Math.max(2, step - 2);
+
+  // A vertical dotted line + label at the start of each calendar year.
+  const yearMarks = [];
+  timeline.forEach((row, index) => {
+    const year = row.month.slice(0, 4);
+    const prev = index > 0 ? timeline[index - 1].month.slice(0, 4) : null;
+    if (index === 0 || year !== prev) yearMarks.push({ x: padding + index * step, year });
+  });
 
   return (
     <section className="card chart-card">
@@ -1043,10 +1088,16 @@ function TimelineChart({ timeline, selectedMonth, onSelectMonth }) {
         </div>
         <strong>{monthLabel(selectedMonth)}</strong>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="timeline-chart" role="img" aria-label="Monthly Green Fund spending timeline">
+      <svg viewBox={`0 0 ${width} ${height}`} className="timeline-chart" preserveAspectRatio="none" role="img" aria-label="Monthly Green Fund spending timeline">
+        {yearMarks.map((mark) => (
+          <g key={mark.year}>
+            <line x1={mark.x} x2={mark.x} y1={padding - 8} y2={height - padding} className="year-break" />
+            <text x={mark.x + 4} y={height - padding + 17} className="year-label">{mark.year}</text>
+          </g>
+        ))}
         <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} className="axis-line" />
         {timeline.map((row, index) => {
-          const x = padding + index * ((width - padding * 2) / Math.max(1, timeline.length));
+          const x = padding + index * step;
           const h = Math.max(1, (Math.max(0, row.amount) / max) * (height - padding * 2));
           const y = height - padding - h;
           const selected = row.month === selectedMonth;
@@ -1058,7 +1109,7 @@ function TimelineChart({ timeline, selectedMonth, onSelectMonth }) {
                 y={y}
                 width={barWidth}
                 height={h}
-                rx="2"
+                rx="1.5"
               />
               <title>{monthLabel(row.month)}: {formatMoney(row.amount, false)}</title>
             </g>
