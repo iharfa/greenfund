@@ -328,6 +328,7 @@ function App() {
   const islandsReached = new Set(
     data.monthlyLocations.filter((r) => Number(r.allocated_amount_mvr) > 0).map((r) => normalizeKey(r.parsed_join_key)).filter(Boolean)
   ).size;
+  const fundBalance = collected - disbursed;
   const heroMetrics = [
     { val: formatMoney(collected), lbl: 'Green Tax collected', sub: `since ${earliestCollectionYear}` },
     { val: formatMoney(disbursed), lbl: 'Disbursed to projects', sub: `${Math.round((disbursed / collected) * 100)}% of revenue` },
@@ -346,7 +347,7 @@ function App() {
   return (
     <>
       <SiteHeader view={view} setView={selectView} onOpenContext={() => setContextCollapsed(false)} />
-      <Hero metrics={heroMetrics} />
+      <Hero metrics={heroMetrics} balance={fundBalance} />
       <AboutContext collapsed={contextCollapsed} onToggle={() => setContextCollapsed((c) => !c)} />
       <main className="app-shell">
         <div className="section" id="dashboard">
@@ -552,18 +553,27 @@ function SiteHeader({ view, setView, onOpenContext }) {
   );
 }
 
-function Hero({ metrics }) {
+function Hero({ metrics, balance }) {
   return (
     <section className="hero" id="top">
       <div className="hero-inner">
-        <div className="hero-kicker">Maldives Green Fund · Public transparency</div>
-        <h1>Green Fund Watch</h1>
-        <p className="hero-subtitle">Are we spending this on “Green” projects?</p>
-        <p className="hero-lead">
-          Every visitor to the Maldives pays a Green Tax for each night of their stay. This dashboard shows how
-          much is collected in each atoll and where the Green Fund spends it, drawn from MIRA collection returns
-          and published Green Fund spending.
-        </p>
+        <div className="hero-top">
+          <div className="hero-copy">
+            <div className="hero-kicker">Maldives Green Fund · Public transparency</div>
+            <h1>Green Fund Watch</h1>
+            <p className="hero-subtitle">Are these projects <span className="hero-em">“green”</span>?</p>
+            <p className="hero-lead">
+              Every visitor to the Maldives pays a Green Tax for each night of their stay. This dashboard shows how
+              much is collected in each atoll and where the Green Fund spends it, drawn from MIRA collection returns
+              and published Green Fund spending.
+            </p>
+          </div>
+          <aside className="hero-balance" aria-label="Green Fund balance">
+            <div className="hero-balance-kicker">Balance in the Green Fund</div>
+            <div className="hero-balance-val">{formatMoney(balance)}</div>
+            <div className="hero-balance-sub">Green Tax collected minus disbursed to projects</div>
+          </aside>
+        </div>
         <div className="hero-metrics">
           {metrics.map((m) => (
             <div className="hero-metric" key={m.lbl}>
